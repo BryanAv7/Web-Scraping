@@ -1,0 +1,21 @@
+# Entorno virtual
+venv/
+.env/
+.env*/
+
+# Cache de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Carpetas de datos (scraping y limpieza)
+datos_extraidos/
+datos_limpios/
+
+# Carpeta de perfiles de Reddit
+reddit_profile/
+
+# Archivos temporales del sistema
+.DS_Store
+Thumbs.db
