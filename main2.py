@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 TEMA_ANALISIS = "nicolas maduro capturado"
 TIMEOUT = 900  
 MAX_WORKERS = 4
+PRUEBA_RAPIDA = True  # Si es True, SE SALTA EL ANALISIS DE NPL Y LLM
 
 # ==========================================
 # SCRIPTS DE ANÁLISIS 
@@ -75,47 +76,75 @@ def main():
     resultados = {}
     errores = {}
 
-    with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        futures = {}
-        for script in ANALISIS_SCRIPTS:
-            future = executor.submit(
-                ejecutar_analisis,
-                script["nombre"],
-                script["archivo"],
-                script["csv_input"],
-                TEMA_ANALISIS
-            )
-            futures[future] = script["nombre"]
+    if not PRUEBA_RAPIDA:
+        with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            futures = {}
+            for script in ANALISIS_SCRIPTS:
+                future = executor.submit(
+                    ejecutar_analisis,
+                    script["nombre"],
+                    script["archivo"],
+                    script["csv_input"],
+                    TEMA_ANALISIS
+                )
+                futures[future] = script["nombre"]
 
-        for future in futures:
-            nombre = futures[future]
-            try:
-                res = future.result(timeout=TIMEOUT)
-                if res["estado"] == "exitoso":
-                    resultados[nombre] = res
-                else:
-                    errores[nombre] = res.get("error")
-            except TimeoutError:
-                errores[nombre] = f"Timeout después de {TIMEOUT} segundos"
-            except Exception as e:
-                errores[nombre] = str(e)
+            for future in futures:
+                nombre = futures[future]
+                try:
+                    res = future.result(timeout=TIMEOUT)
+                    if res["estado"] == "exitoso":
+                        resultados[nombre] = res
+                    else:
+                        errores[nombre] = res.get("error")
+                except TimeoutError:
+                    errores[nombre] = f"Timeout después de {TIMEOUT} segundos"
+                except Exception as e:
+                    errores[nombre] = str(e)
 
-    fin = datetime.now()
-    tiempo_total = (fin - inicio).total_seconds()
+        fin = datetime.now()
+        tiempo_total = (fin - inicio).total_seconds()
 
-    logger.info("="*70)
-    logger.info("RESUMEN FINAL DEL ORQUESTADOR")
-    logger.info("="*70)
-    logger.info(f"Análisis exitosos: {len(resultados)}")
-    logger.info(f"Análisis con error: {len(errores)}")
-    logger.info(f"Tiempo total: {tiempo_total:.2f} segundos")
+        logger.info("="*70)
+        logger.info("RESUMEN FINAL DEL ORQUESTADOR")
+        logger.info("="*70)
+        logger.info(f"Análisis exitosos: {len(resultados)}")
+        logger.info(f"Análisis con error: {len(errores)}")
+        logger.info(f"Tiempo total: {tiempo_total:.2f} segundos")
 
-    if errores:
-        logger.info("Errores detectados:")
-        for nombre, error in errores.items():
-            logger.error(f"  {nombre}: {error}")
+        if errores:
+            logger.info("Errores detectados:")
+            for nombre, error in errores.items():
+                logger.error(f"  {nombre}: {error}")
 
-    logger.info("="*70)
+        logger.info("="*70)
+    else:
+        logger.info("Modo PRUEBA RÁPIDA activado - Se omite la fase de análisis LLM")
+        logger.info("="*70)
+
+    ### Abrir el dashboard automáticamente
+    print("\n" + "="*60)
+    print("✅ Análisis completados exitosamente")
+    print("="*60)
+
+    # Preguntar si quiere abrir el dashboard
+    respuesta = input("\n¿Deseas abrir el dashboard ahora? (s/n): ").lower().strip()
+
+    if respuesta in ['s', 'si', 'sí', 'y', 'yes']:
+        dashboard_script = os.path.join('dashboard', 'run_dashboard.py')
+        
+        print("\n🚀 Iniciando dashboard...")
+        
+        try:
+            subprocess.run(["python", dashboard_script])
+        except KeyboardInterrupt:
+            print("\n🛑 Dashboard cerrado")
+    else:
+        print("\n💡 Puedes abrir el dashboard más tarde ejecutando:")
+        print("   python run_dashboard.py")
+        print("   (desde el directorio del dashboard)")
+
+    print("\n🎉 ¡Hasta luego!")
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Análisis de Sentimientos</title>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- WordCloud2.js -->
+    <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.min.js"></script>
+
+    <!-- Estilos -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Loader mientras carga el JSON -->
+    <div id="loader" class="loader">
+        <div class="spinner"></div>
+        <p>Cargando análisis...</p>
+    </div>
+
+    <!-- Error si no se encuentra el JSON -->
+    <div id="error-container" class="error-container" style="display: none;">
+        <div class="error-content">
+            <h2>⚠️ Error al cargar los datos</h2>
+            <p id="error-message"></p>
+            <button onclick="location.reload()">Reintentar</button>
+        </div>
+    </div>
+
+    <!-- Contenedor principal -->
+    <div id="dashboard" class="dashboard" style="display: none;">
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>📊 Análisis de Sentimientos</h1>
+                <p class="sidebar-subtitle" id="tema-analisis">Cargando...</p>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#resumen" class="nav-link active" data-section="resumen">
+                    <span class="icon">📊</span>
+                    <span>Resumen Ejecutivo</span>
+                </a>
+                <a href="#interpretacion" class="nav-link" data-section="interpretacion">
+                    <span class="icon">🤖</span>
+                    <span>Interpretación LLM</span>
+                </a>
+                <a href="#analisis" class="nav-link" data-section="analisis">
+                    <span class="icon">📈</span>
+                    <span>Análisis Detallado</span>
+                </a>
+                <a href="#conclusiones" class="nav-link" data-section="conclusiones">
+                    <span class="icon">📋</span>
+                    <span>Conclusiones</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="metadata">
+                    <p><strong>Total comentarios:</strong> <span id="total-comentarios">-</span></p>
+                    <p><strong>Fecha análisis:</strong> <span id="fecha-analisis">-</span></p>
+                    <p><strong>Modelo LLM:</strong> <span id="modelo-llm">-</span></p>
+                </div>
+                <div class="archivo-selector-container">
+                    <label for="archivo-selector">
+                        <span class="selector-icon">📁</span>
+                        Seleccionar Análisis
+                    </label>
+                    <select id="archivo-selector" class="archivo-selector">
+                        <!-- Se llena dinámicamente desde JavaScript -->
+                    </select>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Contenido principal -->
+        <main class="main-content">
+
+            <!-- SECCIÓN 1: RESUMEN EJECUTIVO -->
+            <section id="resumen" class="content-section active">
+                <div class="section-header">
+                    <h2>📊 Resumen Ejecutivo</h2>
+                    <p class="section-description">Visión general del análisis de sentimientos</p>
+                </div>
+
+                <!-- Cards de métricas clave -->
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-icon">💬</div>
+                        <div class="metric-content">
+                            <h3 id="metric-total">0</h3>
+                            <p>Total Comentarios</p>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon">📊</div>
+                        <div class="metric-content">
+                            <h3 id="metric-polaridad">0.00</h3>
+                            <p>Polaridad Promedio</p>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon">🎯</div>
+                        <div class="metric-content">
+                            <h3 id="metric-confianza">0%</h3>
+                            <p>Confianza Promedio</p>
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-icon" id="metric-sentimiento-icon">😐</div>
+                        <div class="metric-content">
+                            <h3 id="metric-sentimiento">Neutral</h3>
+                            <p>Sentimiento Predominante</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gráfico 1: Distribución de sentimientos (Dona) -->
+                <div class="chart-container">
+                    <h3>Distribución de Sentimientos</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="chart-distribucion"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECCIÓN 2: INTERPRETACIÓN LLM -->
+            <section id="interpretacion" class="content-section">
+                <div class="section-header">
+                    <h2> Interpretación del Modelo de Lenguaje</h2>
+                    <p class="section-description">Análisis cualitativo generado por <span
+                            id="llm-model-name">LLM</span></p>
+                </div>
+
+                <div class="llm-interpretation">
+                    <div class="interpretation-content" id="interpretacion-texto">
+                        <p>Cargando interpretación...</p>
+                    </div>
+                </div>
+
+                <!-- Highlights extraídos -->
+                <!-- -->
+                <div class="highlights-grid" style="display: none;">
+                    <div class="highlight-card">
+                        <h4>✨ Sentimiento Predominante</h4>
+                        <p id="highlight-sentimiento">-</p>
+                    </div>
+                    <div class="highlight-card">
+                        <h4>✅ Aspectos Positivos</h4>
+                        <p id="highlight-positivos">-</p>
+                    </div>
+                    <div class="highlight-card">
+                        <h4>❌ Aspectos Negativos</h4>
+                        <p id="highlight-negativos">-</p>
+                    </div>
+                    <div class="highlight-card">
+                        <h4>🔍 Patrones Identificados</h4>
+                        <p id="highlight-patrones">-</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECCIÓN 3: ANÁLISIS DETALLADO (con pestañas) -->
+            <section id="analisis" class="content-section">
+                <div class="section-header">
+                    <h2>📈 Análisis Detallado</h2>
+                    <p class="section-description">Visualizaciones estadísticas organizadas por categoría</p>
+                </div>
+
+                <!-- Pestañas de navegación -->
+                <div class="tabs-container">
+                    <div class="tabs-nav">
+                        <button class="tab-button active" data-tab="polaridad">Polaridad</button>
+                        <button class="tab-button" data-tab="frecuencias">Frecuencias</button>
+                        <button class="tab-button" data-tab="ngramas">N-gramas</button>
+                        <button class="tab-button" data-tab="tfidf">TF-IDF</button>
+                        <button class="tab-button" data-tab="emocional">Carga Emocional</button>
+                        <button class="tab-button" data-tab="negaciones">Negaciones</button>
+                        <button class="tab-button" data-tab="metricas">Métricas</button>
+                    </div>
+
+                    <!-- TAB 1: POLARIDAD -->
+                    <div id="tab-polaridad" class="tab-content active">
+                        <!-- Gráfico 2: Polaridad por sentimiento (Barras horizontales) -->
+                        <div class="chart-container">
+                            <h3>Polaridad Promedio por Sentimiento</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="chart-polaridad-sentimiento"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Gráfico 3: Distribución de polaridad (Histograma) -->
+                        <div class="chart-container">
+                            <h3>Distribución de Polaridad General</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="chart-polaridad-distribucion"></canvas>
+                            </div>
+                            <p class="chart-note">
+                                <strong>Interpretación:</strong> Muestra cómo se distribuyen los valores de polaridad
+                                (-1 = muy negativo, 0 = neutral, +1 = muy positivo) entre todos los comentarios.
+                            </p>
+                        </div>
+
+                        <!-- Gráfico 4: Rangos de polaridad (Barras con rangos) -->
+                        <div class="chart-container">
+                            <h3>Rangos de Polaridad por Sentimiento</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="chart-polaridad-rangos"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: FRECUENCIAS -->
+                    <div id="tab-frecuencias" class="tab-content">
+                        <!-- Gráfico 5: WordCloud general -->
+                        <div class="chart-container">
+                            <h3>Nube de Palabras - General</h3>
+                            <div class="wordcloud-wrapper">
+                                <canvas id="wordcloud-general" width="800" height="400"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Gráfico 6: Top 10 palabras generales -->
+                        <div class="chart-container">
+                            <h3>Top 10 Palabras Más Frecuentes</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="chart-top-palabras"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Gráfico 7: Palabras por sentimiento (Barras agrupadas) -->
+                        <div class="chart-container">
+                            <h3>Palabras Más Frecuentes por Sentimiento</h3>
+                            <div class="chart-wrapper chart-wrapper-large">
+                                <canvas id="chart-palabras-sentimiento"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: N-GRAMAS -->
+                    <div id="tab-ngramas" class="tab-content">
+                        <!-- Gráfico 8: Top bigramas generales -->
+                        <div class="chart-container">
+                            <h3>Top 10 Bigramas Más Frecuentes</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="chart-bigramas-general"></canvas>
+                            </div>
+                            <p class="chart-note">
+                                <strong>Bigrama:</strong> Secuencia de dos palabras consecutivas que aparecen juntas
+                                frecuentemente.
+                            </p>
+                        </div>
+
+                        <!-- Gráfico 9: Bigramas comparados (negativos vs positivos) -->
+                        <div class="chart-container">
+                            <h3>Comparación de Bigramas: Negativos vs Positivos</h3>
+                            <div class="chart-wrapper chart-wrapper-large">
+                                <canvas id="chart-bigramas-comparacion"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Gráfico 10: Top trigramas negativos -->
+                        <div class="chart-container">
+                            <h3>Top Trigramas en Comentarios Negativos</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="chart-trigramas-negativos"></canvas>
+                            </div>
+                            <p class="chart-note">
+                                <strong>Trigrama:</strong> Secuencia de tres palabras consecutivas.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- TAB 4: TF-IDF -->
+                    <div id="tab-tfidf" class="tab-content">
+                        <!-- Gráfico 11: Heatmap TF-IDF -->
+                        <div class="chart-container">
+                            <h3>Palabras Distintivas por Sentimiento (TF-IDF)</h3>
+                            <div class="chart-wrapper chart-wrapper-large">
+                                <canvas id="chart-tfidf-heatmap"></canvas>
+                            </div>
+                            <p class="chart-note">
+                                <strong>TF-IDF:</strong> Identifica palabras que son características únicas de cada tipo
+                                de sentimiento.
+                                Valores más altos indican mayor distintividad.
+                            </p>
+                        </div>
+
+                        <!-- Gráfico 12: Radar de palabras clave -->
+                        <div class="chart-container">
+                            <h3>Comparación de Palabras Clave (Radar)</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="chart-tfidf-radar"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 5: CARGA EMOCIONAL -->
+                    <div id="tab-emocional" class="tab-content">
+                        <!-- Gráfico 13: Distribución de emociones (Barras apiladas) -->
+                        <div class="chart-container">
+                            <h3>Distribución de Emociones Detectadas</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="chart-emociones"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Gráfico 14: Ratio positivas/negativas (Medidor) -->
+                        <div class="chart-container">
+                            <h3>Ratio de Palabras con Carga Emocional</h3>
+                            <div class="ratio-display">
+                                <div class="ratio-bar">
+                                    <div class="ratio-positive" id="ratio-positivas"></div>
+                                    <div class="ratio-negative" id="ratio-negativas"></div>
+                                </div>
+                                <div class="ratio-labels">
+                                    <span class="label-positive">
+                                        <strong id="count-positivas">0</strong> Positivas
+                                    </span>
+                                    <span class="label-negative">
+                                        <strong id="count-negativas">0</strong> Negativas
+                                    </span>
+                                </div>
+                                <p class="ratio-value">
+                                    Ratio Negativo/Positivo: <strong id="ratio-value">0.00</strong>
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Gráfico 15: Top palabras emocionales -->
+                        <div class="chart-container">
+                            <h3>Palabras con Mayor Carga Emocional</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="chart-palabras-emocionales"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 6: NEGACIONES -->
+                    <div id="tab-negaciones" class="tab-content">
+                        <!-- Indicador 16: % con negaciones -->
+                        <div class="negaciones-summary">
+                            <div class="negation-card">
+                                <h3 id="negaciones-total">0</h3>
+                                <p>Negaciones Totales</p>
+                            </div>
+                            <div class="negation-card">
+                                <h3 id="negaciones-comentarios">0</h3>
+                                <p>Comentarios con Negación</p>
+                            </div>
+                            <div class="negation-card highlight">
+                                <h3 id="negaciones-porcentaje">0%</h3>
+                                <p>Porcentaje del Corpus</p>
+                            </div>
+                        </div>
+
+                        <!-- Gráfico 17: Bigramas con negación -->
+                        <div class="chart-container">
+                            <h3>Bigramas con Negación Más Frecuentes</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="chart-bigramas-negacion"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Lista 18: Palabras más negadas -->
+                        <div class="chart-container">
+                            <h3>Palabras Más Frecuentemente Negadas</h3>
+                            <div class="palabras-negadas-list" id="palabras-negadas-list">
+                                <!-- Se llena dinámicamente -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 7: MÉTRICAS -->
+                    <div id="tab-metricas" class="tab-content">
+                        <!-- Gráfico 19: Longitud de comentarios -->
+                        <div class="chart-container">
+                            <h3>Longitud Promedio de Comentarios por Sentimiento</h3>
+                            <div class="chart-wrapper">
+                                <canvas id="chart-longitud"></canvas>
+                            </div>
+                            <p class="chart-note">
+                                <strong>Observación:</strong> La longitud de los comentarios puede indicar el nivel de
+                                elaboración o intensidad emocional.
+                            </p>
+                        </div>
+
+                        <!-- Tabla resumen -->
+                        <div class="chart-container">
+                            <h3>Resumen de Métricas por Sentimiento</h3>
+                            <table class="metrics-table">
+                                <thead>
+                                    <tr>
+                                        <th>Sentimiento</th>
+                                        <th>Cantidad</th>
+                                        <th>Porcentaje</th>
+                                        <th>Polaridad Promedio</th>
+                                        <th>Longitud Promedio</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="metrics-table-body">
+                                    <!-- Se llena dinámicamente -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECCIÓN 4: CONCLUSIONES -->
+            <section id="conclusiones" class="content-section">
+                <div class="section-header">
+                    <h2>📋 Conclusiones del Análisis</h2>
+                    <p class="section-description">Resumen de hallazgos principales</p>
+                </div>
+
+                <div class="conclusiones-content">
+                    <div class="conclusion-block">
+                        <h3>🎯 Sentimiento Predominante</h3>
+                        <p id="conclusion-sentimiento">-</p>
+                    </div>
+
+                    <div class="conclusion-block">
+                        <h3>📊 Hallazgos Estadísticos Clave</h3>
+                        <ul id="conclusion-estadisticos">
+                            <li>Cargando...</li>
+                        </ul>
+                    </div>
+
+                    <div class="conclusion-block">
+                        <h3>💡 Insights Principales</h3>
+                        <p id="conclusion-insights">-</p>
+                    </div>
+
+                    <div class="conclusion-block">
+                        <h3>🔮 Recomendaciones</h3>
+                        <p id="conclusion-recomendaciones">-</p>
+                    </div>
+                </div>
+
+                <!-- Botón de descarga del JSON -->
+                <div class="actions">
+                    <button class="btn-primary" onclick="descargarJSON()">
+                        📥 Descargar Datos Completos (JSON)
+                    </button>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="main.js"></script>
+    <script src="visualizaciones.js"></script>
+    <script>
+        setInterval(() => {
+            fetch('/heartbeat').catch(() => { });
+        }, 3000);
+
+        window.addEventListener("beforeunload", () => {
+            navigator.sendBeacon('/heartbeat');
+        });
+    </script>
+
+</body>
+
+</html>

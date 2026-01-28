@@ -13,7 +13,6 @@ __pycache__/
 datos_extraidos/
 datos_limpios/
 resultados/
-dashboard/
 
 # Carpeta de perfiles de Reddit
 reddit_profile/
