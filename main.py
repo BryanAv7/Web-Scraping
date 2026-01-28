@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 # CONFIGURACIÓN PRINCIPAL
 # ==========================================
 
-POSTS_POR_TEMA = 20
+POSTS_POR_TEMA = 40
 
 TEMAS_BUSCAR = [
     "nicolas maduro capturado",

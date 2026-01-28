@@ -12,6 +12,7 @@ __pycache__/
 # Carpetas de datos (scraping y limpieza)
 datos_extraidos/
 datos_limpios/
+resultados/
 
 # Carpeta de perfiles de Reddit
 reddit_profile/
