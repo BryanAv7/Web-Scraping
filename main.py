@@ -2,6 +2,7 @@
 ORQUESTADOR - MODO PROCESOS
 FASE 1: Scraping paralelo
 FASE 2: Preprocesamiento secuencial
+FASE 3: Análisis LLM (main2)
 """
 
 from concurrent.futures import ProcessPoolExecutor, TimeoutError
@@ -11,7 +12,7 @@ import importlib.util
 import os
 import asyncio
 import subprocess
-import sys 
+import sys
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -20,10 +21,10 @@ logger = logging.getLogger(__name__)
 # CONFIGURACIÓN PRINCIPAL
 # ==========================================
 
-POSTS_POR_TEMA = 40
+POSTS_POR_TEMA = 50
 
 TEMAS_BUSCAR = [
-    "nicolas maduro capturado",
+    "nicolas muñoz",
 ]
 
 # ==========================================
@@ -41,7 +42,7 @@ MAX_WORKERS = 4
 TIMEOUT = 600
 
 SCRIPT_PREPROCESAMIENTO = "pipeline/preprocesamiento.py"
-
+RUTA_MAIN2 = "Parte2/main2.py"  
 
 # ==========================================
 # EJECUTAR UN EXTRACTOR EN PROCESO
@@ -75,7 +76,6 @@ def _ejecutar_extractor_proceso(nombre, archivo, config):
         logger.error(f"{nombre}: Error - {str(e)}")
         return {"nombre": nombre, "estado": "error", "error": str(e)}
 
-
 # ==========================================
 # PREPROCESAMIENTO
 # ==========================================
@@ -107,7 +107,6 @@ def _ejecutar_preprocesamiento():
         logger.error(f"Preprocesamiento: Error - {str(e)}")
         return {"nombre": "Preprocesamiento", "estado": "error", "error": str(e)}
 
-
 # ==========================================
 # ORQUESTADOR
 # ==========================================
@@ -126,7 +125,6 @@ class OrquestadorExtractores:
         logger.info("=" * 70)
         logger.info("Orquestador - Modo Procesos")
         logger.info("=" * 70)
-        #logger.info(f"Posts por tema: {self.config.get('posts_por_tema')}")
         logger.info(f"Temas a buscar: {len(self.config.get('temas_buscar', []))}")
         logger.info("=" * 70)
 
@@ -185,6 +183,14 @@ class OrquestadorExtractores:
         self.fin = datetime.now()
         self._imprimir_resumen()
 
+        # ==========================
+        # FASE 3 - ANÁLISIS LLM (MAIN2)
+        # ==========================
+        if not self.errores:
+            self._ejecutar_main2()
+        else:
+            logger.warning("Se detectaron errores en fases anteriores. Se omite MAIN2.")
+
     def _imprimir_resumen(self):
         tiempo_total = (self.fin - self.inicio).total_seconds()
 
@@ -202,6 +208,23 @@ class OrquestadorExtractores:
 
         logger.info("=" * 70)
 
+    def _ejecutar_main2(self):
+        try:
+            if not os.path.exists(RUTA_MAIN2):
+                raise FileNotFoundError(f"No se encontró main2: {RUTA_MAIN2}")
+
+            spec = importlib.util.spec_from_file_location("main2_module", RUTA_MAIN2)
+            main2_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(main2_module)
+
+            logger.info("="*70)
+            logger.info("Iniciando FASE 3: ANÁLISIS LLM (MAIN2)")
+            logger.info("="*70)
+
+            main2_module.main()
+
+        except Exception as e:
+            logger.error(f"No se pudo ejecutar MAIN2: {str(e)}")
 
 # ==========================================
 # MAIN
@@ -209,7 +232,7 @@ class OrquestadorExtractores:
 
 def main():
     logger.info("=" * 70)
-    logger.info("Pipeline completo: SCRAPING + PREPROCESAMIENTO")
+    logger.info("Pipeline completo: SCRAPING + PREPROCESAMIENTO + ANALISIS LLM")
     logger.info("=" * 70)
 
     config = {

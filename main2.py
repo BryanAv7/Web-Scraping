@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 # CONFIGURACIÓN PRINCIPAL
 # ==========================================
 
-TEMA_ANALISIS = "nicolas maduro capturado"
+TEMA_ANALISIS = "nicolas muñoz"
 TIMEOUT = 900  
 MAX_WORKERS = 4
-PRUEBA_RAPIDA = True  # Si es True, SE SALTA EL ANALISIS DE NPL Y LLM
+PRUEBA_RAPIDA = False  
 
 # ==========================================
 # SCRIPTS DE ANÁLISIS 
@@ -69,7 +69,7 @@ def ejecutar_analisis(nombre, archivo, csv_input, tema):
 
 def main():
     logger.info("="*70)
-    logger.info("ORQUESTADOR - FASE ANÁLISIS LLM PARALLO")
+    logger.info("ORQUESTADOR - FASE ANÁLISIS LLMs")
     logger.info("="*70)
 
     inicio = datetime.now()
@@ -127,7 +127,7 @@ def main():
     print("✅ Análisis completados exitosamente")
     print("="*60)
 
-    # Preguntar si quiere abrir el dashboard
+    # Preguntar 
     respuesta = input("\n¿Deseas abrir el dashboard ahora? (s/n): ").lower().strip()
 
     if respuesta in ['s', 'si', 'sí', 'y', 'yes']:
