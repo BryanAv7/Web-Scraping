@@ -1,7 +1,6 @@
-"""
-ORQUESTADOR - ANÁLISIS LLM
-Ejecución concurrente de análisis de sentimientos + LLM sobre CSVs generados por los extractores
-"""
+# ==========================================
+# ORQUESTADOR - ANÁLISIS LLM
+# ==========================================
 
 import logging
 import subprocess
@@ -17,9 +16,8 @@ logger = logging.getLogger(__name__)
 # CONFIGURACIÓN PRINCIPAL
 # ==========================================
 
-TEMA_ANALISIS = "nicolas muñoz"
 MAX_WORKERS = 4
-PRUEBA_RAPIDA = False  
+PRUEBA_RÁPIDA = False  
 
 # ==========================================
 # SCRIPTS DE ANÁLISIS 
@@ -37,9 +35,6 @@ ANALISIS_SCRIPTS = [
 # ==========================================
 
 def ejecutar_analisis(nombre, archivo, csv_input, tema):
-    """
-    Ejecuta el script de análisis como proceso independiente.
-    """
     try:
         logger.info(f"Iniciando análisis: {nombre}")
         
@@ -48,13 +43,12 @@ def ejecutar_analisis(nombre, archivo, csv_input, tema):
         if not os.path.exists(csv_input):
             raise FileNotFoundError(f"CSV de entrada no encontrado: {csv_input}")
 
-        # Ejecutar el script pasando CSV y TEMA_ANALISIS como argumentos
         comando = [sys.executable, archivo, csv_input, tema]
         resultado = subprocess.run(
-            comando, 
-            capture_output=True, 
-            text=True, 
-            encoding='utf-8', 
+            comando,
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
             errors='replace',
             stdin=subprocess.DEVNULL
         )
@@ -73,22 +67,21 @@ def ejecutar_analisis(nombre, archivo, csv_input, tema):
 # ORQUESTADOR CONCURRENTE
 # ==========================================
 
-def main():
+def main(tema_analisis):
     logger.info("="*70)
     logger.info("ORQUESTADOR - FASE ANÁLISIS LLMs (CONCURRENTE)")
+    logger.info(f"Tema de análisis: {tema_analisis}")
     logger.info("="*70)
 
     inicio = datetime.now()
     resultados = {}
     errores = {}
 
-    if not PRUEBA_RAPIDA:
-        # ==========================
+    if not PRUEBA_RÁPIDA:
         # Ejecutar scripts concurrentemente con hilos
-        # ==========================
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             future_to_nombre = {
-                executor.submit(ejecutar_analisis, s["nombre"], s["archivo"], s["csv_input"], TEMA_ANALISIS): s["nombre"]
+                executor.submit(ejecutar_analisis, s["nombre"], s["archivo"], s["csv_input"], tema_analisis): s["nombre"]
                 for s in ANALISIS_SCRIPTS
             }
 
@@ -123,26 +116,29 @@ def main():
         logger.info("Modo PRUEBA RÁPIDA activado - Se omite la fase de análisis LLM")
         logger.info("="*70)
 
-    # Abrir el dashboard automáticamente
-    print("\n" + "="*60)
-    print("✅ Análisis completados exitosamente")
-    print("="*60)
-
+    # Abrir el dashboard sin cerrar el servidor
     dashboard_script = os.path.join('dashboard', 'run_dashboard.py')
-    
-    print("\n🚀 Iniciando dashboard automáticamente...")
-    
+    print("\n🚀 Iniciando dashboard automáticamente (servidor persistente)...")
+
     try:
-        subprocess.run([sys.executable, dashboard_script])
-    except KeyboardInterrupt:
-        print("\n🛑 Dashboard cerrado")
+        # subprocess.Popen mantiene el proceso activo en segundo plano
+        subprocess.Popen([sys.executable, dashboard_script])
+        print("🌐 Dashboard en http://localhost:8000")
+        print("💡 El servidor seguirá corriendo aunque cierres el navegador")
     except Exception as e:
         print(f"\n⚠️ Error al abrir dashboard: {e}")
-        print("\n💡 Puedes abrir el dashboard manualmente ejecutando:")
-        print("   python run_dashboard.py")
-        print("   (desde el directorio del dashboard)")
+        print("\n💡 Puedes abrir el dashboard manualmente ejecutando: python run_dashboard.py")
 
-    print("\n🎉 ¡Hasta luego!")
+
+# ==========================================
+# EJECUTAR MAIN
+# ==========================================
 
 if __name__ == "__main__":
-    main()
+    import sys
+    # Recibe el tema desde Main1
+    if len(sys.argv) > 1:
+        tema = sys.argv[1]
+    else:
+        tema = "tema_por_defecto"
+    main(tema)

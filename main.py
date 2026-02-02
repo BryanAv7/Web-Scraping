@@ -21,9 +21,8 @@ logger = logging.getLogger(__name__)
 # CONFIGURACIÓN PRINCIPAL
 # ==========================================
 
-POSTS_POR_TEMA = 20
-
-TEMAS_BUSCAR = [
+POSTS_POR_TEMA_DEFAULT = 20
+TEMAS_BUSCAR_DEFAULT = [
     "nicolas maduro capturado",
 ]
 
@@ -42,7 +41,29 @@ MAX_WORKERS = 4
 TIMEOUT = 600
 
 SCRIPT_PREPROCESAMIENTO = "pipeline/preprocesamiento.py"
-RUTA_MAIN2 = "main2.py" 
+RUTA_MAIN2 = "main2.py"
+
+# ==========================================
+# FUNCIONES PARA INGRESO DE DATOS
+# ==========================================
+
+def preguntar_config_usuario():
+    # POSTS_POR_TEMA
+    try:
+        posts_input = input(f"Ingrese número de posts/comentarios por tema [{POSTS_POR_TEMA_DEFAULT}]: ").strip()
+        posts_por_tema = int(posts_input) if posts_input else POSTS_POR_TEMA_DEFAULT
+    except ValueError:
+        logger.warning(f"Valor inválido, se usará {POSTS_POR_TEMA_DEFAULT}")
+        posts_por_tema = POSTS_POR_TEMA_DEFAULT
+
+    # TEMAS_BUSCAR
+    temas_input = input(f"Ingrese temas a buscar, separados por coma [{', '.join(TEMAS_BUSCAR_DEFAULT)}]: ").strip()
+    if temas_input:
+        temas_buscar = [t.strip() for t in temas_input.split(",") if t.strip()]
+    else:
+        temas_buscar = TEMAS_BUSCAR_DEFAULT
+
+    return posts_por_tema, temas_buscar
 
 # ==========================================
 # EJECUTAR UN EXTRACTOR EN PROCESO
@@ -120,6 +141,7 @@ class OrquestadorExtractores:
         self.errores = {}
         self.inicio = None
         self.fin = None
+        self.tema_a_analizar = None  # Guardaremos el tema principal aquí
 
     def ejecutar(self):
         logger.info("=" * 70)
@@ -180,16 +202,23 @@ class OrquestadorExtractores:
             except Exception as e:
                 self.errores["Preprocesamiento"] = str(e)
 
+        # ==========================
+        # Guardamos el tema principal para Main2
+        # ==========================
+        if self.config.get("temas_buscar"):
+            self.tema_a_analizar = self.config.get("temas_buscar")[0]
+            logger.info(f"Tema principal a analizar en Main2: {self.tema_a_analizar}")
+
         self.fin = datetime.now()
         self._imprimir_resumen()
 
         # ==========================
         # FASE 3 - ANÁLISIS LLM (MAIN2)
         # ==========================
-        if not self.errores:
+        if not self.errores and self.tema_a_analizar:
             self._ejecutar_main2()
         else:
-            logger.warning("Se detectaron errores en fases anteriores. Se omite MAIN2.")
+            logger.warning("Se detectaron errores en fases anteriores o no hay tema definido. Se omite MAIN2.")
 
     def _imprimir_resumen(self):
         tiempo_total = (self.fin - self.inicio).total_seconds()
@@ -202,7 +231,7 @@ class OrquestadorExtractores:
         logger.info(f"Tiempo total: {tiempo_total:.2f} segundos")
 
         if self.errores:
-            logger.info("Errores:")
+            logger.info("Errores:") 
             for nombre, error in self.errores.items():
                 logger.error(f"  {nombre}: {error}")
 
@@ -221,7 +250,8 @@ class OrquestadorExtractores:
             logger.info("Iniciando FASE 3: ANÁLISIS LLM (MAIN2)")
             logger.info("="*70)
 
-            main2_module.main()
+            # Pasamos el tema principal a Main2
+            main2_module.main(self.tema_a_analizar)
 
         except Exception as e:
             logger.error(f"No se pudo ejecutar MAIN2: {str(e)}")
@@ -235,9 +265,12 @@ def main():
     logger.info("Pipeline completo: SCRAPING + PREPROCESAMIENTO + ANALISIS LLM")
     logger.info("=" * 70)
 
+    # Preguntar configuración al usuario
+    posts_por_tema, temas_buscar = preguntar_config_usuario()
+
     config = {
-        "posts_por_tema": POSTS_POR_TEMA,
-        "temas_buscar": TEMAS_BUSCAR
+        "posts_por_tema": posts_por_tema,
+        "temas_buscar": temas_buscar
     }
 
     orquestador = OrquestadorExtractores(

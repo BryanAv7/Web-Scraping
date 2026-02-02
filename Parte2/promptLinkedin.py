@@ -693,9 +693,11 @@ Resultados del análisis:
 
 {resumen_texto}
 
-Interpreta estos datos en un solo párrafo profesional: explica el sentimiento general, 
-los hallazgos clave y conclusiones principales. Mantén objetividad y basa tu análisis 
-exclusivamente en la evidencia presentada."""
+Interpreta estos datos en un solo párrafo profesional. Enfócate en:
+- Sintetizar el sentimiento general detectado.
+- Destacar los hallazgos más relevantes.
+- Extraer conclusiones claras y objetivas.
+Evita cualquier mención de cifras, porcentajes o estadísticas. Solo interpreta la información de forma objetiva basada en el contenido textual."""
     
     try:
         response = co_client.chat(
