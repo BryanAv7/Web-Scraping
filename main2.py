@@ -1,14 +1,14 @@
 """
 ORQUESTADOR - ANÁLISIS LLM
-Ejecución de análisis de sentimientos + LLM sobre CSVs generados por los extractores
+Ejecución concurrente de análisis de sentimientos + LLM sobre CSVs generados por los extractores
 """
 
-from concurrent.futures import ProcessPoolExecutor, TimeoutError
 import logging
 import subprocess
 import sys
 import os
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 # ==========================================
 
 TEMA_ANALISIS = "nicolas muñoz"
-TIMEOUT = 900  
 MAX_WORKERS = 4
 PRUEBA_RAPIDA = False  
 
@@ -57,7 +56,7 @@ def ejecutar_analisis(nombre, archivo, csv_input, tema):
             text=True, 
             encoding='utf-8', 
             errors='replace',
-            stdin=subprocess.DEVNULL  # ← Ignora todos los input() en los scripts
+            stdin=subprocess.DEVNULL
         )
 
         if resultado.returncode != 0:
@@ -71,12 +70,12 @@ def ejecutar_analisis(nombre, archivo, csv_input, tema):
         return {"nombre": nombre, "estado": "error", "error": str(e)}
 
 # ==========================================
-# ORQUESTADOR
+# ORQUESTADOR CONCURRENTE
 # ==========================================
 
 def main():
     logger.info("="*70)
-    logger.info("ORQUESTADOR - FASE ANÁLISIS LLMs")
+    logger.info("ORQUESTADOR - FASE ANÁLISIS LLMs (CONCURRENTE)")
     logger.info("="*70)
 
     inicio = datetime.now()
@@ -84,28 +83,23 @@ def main():
     errores = {}
 
     if not PRUEBA_RAPIDA:
-        with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            futures = {}
-            for script in ANALISIS_SCRIPTS:
-                future = executor.submit(
-                    ejecutar_analisis,
-                    script["nombre"],
-                    script["archivo"],
-                    script["csv_input"],
-                    TEMA_ANALISIS
-                )
-                futures[future] = script["nombre"]
+        # ==========================
+        # Ejecutar scripts concurrentemente con hilos
+        # ==========================
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            future_to_nombre = {
+                executor.submit(ejecutar_analisis, s["nombre"], s["archivo"], s["csv_input"], TEMA_ANALISIS): s["nombre"]
+                for s in ANALISIS_SCRIPTS
+            }
 
-            for future in futures:
-                nombre = futures[future]
+            for future in as_completed(future_to_nombre):
+                nombre = future_to_nombre[future]
                 try:
-                    res = future.result(timeout=TIMEOUT)
+                    res = future.result()
                     if res["estado"] == "exitoso":
                         resultados[nombre] = res
                     else:
                         errores[nombre] = res.get("error")
-                except TimeoutError:
-                    errores[nombre] = f"Timeout después de {TIMEOUT} segundos"
                 except Exception as e:
                     errores[nombre] = str(e)
 
@@ -139,7 +133,7 @@ def main():
     print("\n🚀 Iniciando dashboard automáticamente...")
     
     try:
-        subprocess.run(["python", dashboard_script])
+        subprocess.run([sys.executable, dashboard_script])
     except KeyboardInterrupt:
         print("\n🛑 Dashboard cerrado")
     except Exception as e:
