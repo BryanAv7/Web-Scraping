@@ -689,24 +689,13 @@ def interpretar_con_cohere(resumen_texto, tema, co_client):
 en análisis de redes sociales. He realizado un análisis estadístico exhaustivo de 
 comentarios sobre {tema} utilizando técnicas de procesamiento de lenguaje natural.
 
-A continuación te presento los resultados completos del análisis:
+Resultados del análisis:
 
 {resumen_texto}
 
-Basándote ÚNICAMENTE en estos datos estadísticos, proporciona una interpretación 
-profesional, clara y detallada que incluya:
-
-1. Una descripción del sentimiento predominante y su intensidad
-2. Los aspectos específicos del tema que generan sentimientos positivos
-3. Los aspectos específicos del tema que generan sentimientos negativos
-4. Patrones o tendencias relevantes identificados en los datos
-5. Insights interesantes o sorprendentes que revelen los números
-6. Conclusiones principales sobre la percepción general del tema
-7. Recomendaciones accionables basadas en los hallazgos (si aplica)
-
-Tu interpretación debe ser objetiva, basada en evidencia, y expresada en un 
-lenguaje profesional pero accesible. Evita especular más allá de lo que los 
-datos muestran."""
+Interpreta estos datos en un solo párrafo profesional: explica el sentimiento general, 
+los hallazgos clave y conclusiones principales. Mantén objetividad y basa tu análisis 
+exclusivamente en la evidencia presentada."""
     
     try:
         response = co_client.chat(

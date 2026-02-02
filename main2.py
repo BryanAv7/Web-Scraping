@@ -51,7 +51,14 @@ def ejecutar_analisis(nombre, archivo, csv_input, tema):
 
         # Ejecutar el script pasando CSV y TEMA_ANALISIS como argumentos
         comando = [sys.executable, archivo, csv_input, tema]
-        resultado = subprocess.run(comando, capture_output=True, text=True, encoding='utf-8', errors='replace')
+        resultado = subprocess.run(
+            comando, 
+            capture_output=True, 
+            text=True, 
+            encoding='utf-8', 
+            errors='replace',
+            stdin=subprocess.DEVNULL  # ← Ignora todos los input() en los scripts
+        )
 
         if resultado.returncode != 0:
             raise RuntimeError(resultado.stderr)
@@ -122,25 +129,22 @@ def main():
         logger.info("Modo PRUEBA RÁPIDA activado - Se omite la fase de análisis LLM")
         logger.info("="*70)
 
-    ### Abrir el dashboard automáticamente
+    # Abrir el dashboard automáticamente
     print("\n" + "="*60)
     print("✅ Análisis completados exitosamente")
     print("="*60)
 
-    # Preguntar 
-    respuesta = input("\n¿Deseas abrir el dashboard ahora? (s/n): ").lower().strip()
-
-    if respuesta in ['s', 'si', 'sí', 'y', 'yes']:
-        dashboard_script = os.path.join('dashboard', 'run_dashboard.py')
-        
-        print("\n🚀 Iniciando dashboard...")
-        
-        try:
-            subprocess.run(["python", dashboard_script])
-        except KeyboardInterrupt:
-            print("\n🛑 Dashboard cerrado")
-    else:
-        print("\n💡 Puedes abrir el dashboard más tarde ejecutando:")
+    dashboard_script = os.path.join('dashboard', 'run_dashboard.py')
+    
+    print("\n🚀 Iniciando dashboard automáticamente...")
+    
+    try:
+        subprocess.run(["python", dashboard_script])
+    except KeyboardInterrupt:
+        print("\n🛑 Dashboard cerrado")
+    except Exception as e:
+        print(f"\n⚠️ Error al abrir dashboard: {e}")
+        print("\n💡 Puedes abrir el dashboard manualmente ejecutando:")
         print("   python run_dashboard.py")
         print("   (desde el directorio del dashboard)")
 

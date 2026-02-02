@@ -2,6 +2,7 @@
 ====================================
 EXTRACTOR DE POSTS TWITTER/X
 SOLO POSTS + COMENTARIOS – CONTROLADO POR ORQUESTADOR
+CON APERTURA AUTOMÁTICA DE BRAVE
 ====================================
 """
 
@@ -13,24 +14,63 @@ import logging
 from datetime import datetime
 from urllib.parse import quote
 import hashlib
+import subprocess
+import time
+import os
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
-# Palabras clave estrictas 
-PALABRAS_CLAVE = [
-    "maduro",
-    "capturado",
-    "arrestado",
-    "detenido",
-    "preso",
-    "eeuu",
-    "estados unidos",
-    "dea",
-    "militar",
-    "urgente",
-    "última hora",
-]
+
+
+# ================================
+# Configuración de Brave
+# ================================
+BRAVE_PATH = r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
+DEBUG_PORT = 9222
+
+# ================================
+# Función para abrir Brave con debugging
+# ================================
+def abrir_brave_con_debugging():
+    """
+    Abre Brave con remote debugging habilitado en el puerto 9222
+    """
+    logger.info("=" * 70)
+    logger.info("Iniciando Brave con modo de depuración remota...")
+    logger.info(f"Puerto: {DEBUG_PORT}")
+    logger.info("=" * 70)
+    
+    # Verificar que Brave existe
+    if not os.path.exists(BRAVE_PATH):
+        logger.error(f"❌ No se encontró Brave en: {BRAVE_PATH}")
+        logger.error("Por favor, verifica la ruta de instalación")
+        return None
+    
+    # Comando para abrir Brave
+    cmd = [
+        BRAVE_PATH,
+        f"--remote-debugging-port={DEBUG_PORT}",
+        "https://x.com"  # Abrir directamente en X
+    ]
+    
+    try:
+        # Iniciar proceso de Brave
+        proceso = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        
+        logger.info("✅ Brave iniciado correctamente")
+        logger.info("⏳ Esperando a que el navegador esté listo...")
+        time.sleep(5)  # Dar tiempo para que Brave se inicie completamente
+        
+        return proceso
+        
+    except Exception as e:
+        logger.error(f"❌ Error al iniciar Brave: {e}")
+        return None
 
 # ================================
 # Función para generar ID corto del post
@@ -154,10 +194,6 @@ class ExtractorTwitterPosts:
                         continue
 
                     contenido = " ".join(contenido.replace("\n", " ").replace("\r", " ").split()).strip()
-                    texto_lower = contenido.lower()
-
-                    if not any(p in texto_lower for p in PALABRAS_CLAVE):
-                        continue
 
                     if contenido in textos_procesados:
                         continue
@@ -222,20 +258,39 @@ class ExtractorTwitterPosts:
         logger.info("=" * 70)
 
         async with async_playwright() as p:
-            try:
-                browser = await p.chromium.connect_over_cdp("http://localhost:9222")
-                logger.info("OK Conectado a Brave")
-            except:
-                logger.error("No se pudo conectar a Brave en puerto 9222")
-                return False
+            max_intentos = 5
+            intentos = 0
+            browser = None
+            
+            while intentos < max_intentos and browser is None:
+                try:
+                    intentos += 1
+                    logger.info(f"Intento de conexión #{intentos}...")
+                    browser = await p.chromium.connect_over_cdp(f"http://localhost:{DEBUG_PORT}")
+                    logger.info("✅ Conectado a Brave")
+                except Exception as e:
+                    if intentos < max_intentos:
+                        logger.warning(f"⏳ Esperando conexión... ({intentos}/{max_intentos})")
+                        await asyncio.sleep(2)
+                    else:
+                        logger.error(f"❌ No se pudo conectar a Brave después de {max_intentos} intentos")
+                        logger.error(f"Error: {e}")
+                        return False
 
             pages = browser.contexts[0].pages
             if not pages:
-                logger.error("No hay pestañas abiertas en Brave")
+                logger.error("❌ No hay pestañas abiertas en Brave")
                 return False
 
             page = pages[0]
             await page.set_viewport_size({"width": 1920, "height": 1080})
+            
+            # Asegurarse de que estamos en X
+            current_url = page.url
+            if "x.com" not in current_url and "twitter.com" not in current_url:
+                logger.info("📍 Navegando a X...")
+                await page.goto("https://x.com", wait_until="domcontentloaded")
+                await self.delay_humano(3, 5)
 
             total = 0
             for idx, tema in enumerate(self.temas_buscar, 1):
@@ -252,8 +307,11 @@ class ExtractorTwitterPosts:
 # ================================
 def guardar_csv(datos, archivo="datos_extraidos/X.csv"):
     if not datos:
-        logger.error("No hay datos para guardar")
+        logger.error("❌ No hay datos para guardar")
         return False
+
+    # Crear directorio si no existe
+    os.makedirs(os.path.dirname(archivo), exist_ok=True)
 
     with open(archivo, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
@@ -265,9 +323,9 @@ def guardar_csv(datos, archivo="datos_extraidos/X.csv"):
         writer.writerows(datos)
 
     logger.info("=" * 70)
-    logger.info("CSV generado correctamente")
-    logger.info(f"Archivo: {archivo}")
-    logger.info(f"Total registros: {len(datos)}")
+    logger.info("✅ CSV generado correctamente")
+    logger.info(f"📁 Archivo: {archivo}")
+    logger.info(f"📊 Total registros: {len(datos)}")
     logger.info("=" * 70)
     return True
 
@@ -275,13 +333,45 @@ def guardar_csv(datos, archivo="datos_extraidos/X.csv"):
 # MAIN CONTROLADO POR ORQUESTADOR
 # ================================
 async def main(posts_por_tema, temas_buscar):
-    extractor = ExtractorTwitterPosts(
-        posts_por_tema=posts_por_tema,
-        temas_buscar=temas_buscar
-    )
+    # 1. Abrir Brave con debugging
+    proceso_brave = abrir_brave_con_debugging()
+    
+    if proceso_brave is None:
+        logger.error("❌ No se pudo iniciar Brave. Abortando...")
+        return
+    
+    try:
+        # 2. Ejecutar extractor
+        extractor = ExtractorTwitterPosts(
+            posts_por_tema=posts_por_tema,
+            temas_buscar=temas_buscar
+        )
 
-    ok = await extractor.ejecutar()
-    if ok and extractor.datos:
-        guardar_csv(extractor.datos)
-    else:
-        logger.error("No se pudo completar la extracción")
+        ok = await extractor.ejecutar()
+        
+        # 3. Guardar resultados
+        if ok and extractor.datos:
+            guardar_csv(extractor.datos)
+        else:
+            logger.error("❌ No se pudo completar la extracción")
+    
+    finally:
+        logger.info("\n" + "=" * 70)
+        logger.info("🔒 Cerrando Brave automáticamente...")
+        try:
+            if proceso_brave:
+                proceso_brave.terminate()
+                logger.info("✅ Brave cerrado")
+        except Exception as e:
+            logger.error(f"Error al cerrar Brave: {e}")
+
+
+# ================================
+# Punto de entrada si se ejecuta directamente
+# ================================
+if __name__ == "__main__":
+    # Ejemplo de uso
+    asyncio.run(main(
+        posts_por_tema=10,
+        temas_buscar=["nicolas muñoz"]
+    ))

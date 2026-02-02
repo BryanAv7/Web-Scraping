@@ -1,6 +1,7 @@
 """
 ============================================
 EXTRACTOR DE POSTS Y COMENTARIOS DE FACEBOOK
+CON APERTURA AUTOMÁTICA DE VIVALDI
 ============================================
 """
 
@@ -14,6 +15,8 @@ import threading
 import random
 import hashlib
 import math
+import subprocess
+import os
 
 FECHA_EXTRACCION = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -22,50 +25,41 @@ FECHA_EXTRACCION = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 # =====================================================
 
 VIVALDI_DEBUG_PORT = 9225
+VIVALDI_PATH = r"C:\Users\USUARIO\AppData\Local\Vivaldi\Application\vivaldi.exe"
 BASE_URL = f"http://127.0.0.1:{VIVALDI_DEBUG_PORT}"
-
-# Términos de búsqueda
-TERMINOS_BUSQUEDA = [
-    "Nicolas maduro capturado",
-]
 
 # Configuración de posts
 MAX_POSTS = 50
-POSTS_ESTIMADOS_INICIAL = 3  # Facebook carga menos posts inicialmente
-POSTS_ESTIMADOS_POR_SCROLL = 2  # Posts que aparecen por scroll
-MAX_SCROLLS = 15  # Más scrolls porque Facebook carga lento
+POSTS_ESTIMADOS_INICIAL = 3
+POSTS_ESTIMADOS_POR_SCROLL = 2
+MAX_SCROLLS = 15
 
 # =====================================================
 # CONFIGURACIÓN GLOBAL - COMENTARIOS
 # =====================================================
 
-# Control de extracción
 EXTRAER_COMENTARIOS = False
 MAX_COMENTARIOS_POR_POST = 20
 
-# Profundidad de búsqueda
-EXPANDIR_VER_MAS = True  # Expandir botones "Ver más"
-MAX_EXPANDIR_COMENTARIOS = 3  # Cuántos "Ver más comentarios" expandir
+EXPANDIR_VER_MAS = True
+MAX_EXPANDIR_COMENTARIOS = 3
 
-# Scroll de comentarios
 MAX_SCROLLS_COMENTARIOS = 3
 MIN_COMENTARIOS_THRESHOLD = 3
 
-# Tiempos parametrizables
-PAUSA_SCROLL_BASE = (1.5, 2.5)  # Rango de pausa entre scrolls
-PAUSA_PRIMERA_CARGA = 8  # Espera inicial de carga
-PAUSA_ENTRE_POSTS = (2, 4)  # Pausa entre posts (3, 6) 
-PAUSA_EXPANSION = 2.0  # Después de expandir contenido
-PAUSA_ENTRE_TERMINOS = (5, 8)  # Pausa entre términos de búsqueda
+PAUSA_SCROLL_BASE = (1.5, 2.5)
+PAUSA_PRIMERA_CARGA = 8
+PAUSA_ENTRE_POSTS = (2, 4)
+PAUSA_EXPANSION = 2.0
+PAUSA_ENTRE_TERMINOS = (5, 8)
 
-# Detección de duplicados
 DEDUPLICAR_POSTS = True
 
 # =====================================================
 # MODO PARAMETRIZABLE
 # =====================================================
 
-MODO_RAPIDO = False  # True = más rápido pero menos posts, False = más completo
+MODO_RAPIDO = False
 
 CONFIG_RAPIDO = {
     'tiempo_espera': (1.5, 2.5),
@@ -84,7 +78,47 @@ CONFIG_BALANCEADO = {
 CONFIG = CONFIG_RAPIDO if MODO_RAPIDO else CONFIG_BALANCEADO
 
 # =====================================================
-# CLASE CDP CLIENT (Mejorada)
+# FUNCIÓN PARA ABRIR VIVALDI
+# =====================================================
+
+def abrir_vivaldi_con_debugging():
+    """Abre Vivaldi con remote debugging habilitado en el puerto 9225"""
+    print("=" * 70)
+    print("Iniciando Vivaldi con modo de depuración remota...")
+    print(f"Puerto: {VIVALDI_DEBUG_PORT}")
+    print("=" * 70)
+    
+    if not os.path.exists(VIVALDI_PATH):
+        print(f"❌ No se encontró Vivaldi en: {VIVALDI_PATH}")
+        print("Por favor, verifica la ruta de instalación")
+        return None
+    
+    cmd = [
+        VIVALDI_PATH,
+        f"--remote-debugging-port={VIVALDI_DEBUG_PORT}",
+        "--remote-allow-origins=*",
+        "https://www.facebook.com"
+    ]
+    
+    try:
+        proceso = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        
+        print("✅ Vivaldi iniciado correctamente")
+        print("⏳ Esperando a que el navegador esté listo...")
+        time.sleep(5)
+        
+        return proceso
+        
+    except Exception as e:
+        print(f"❌ Error al iniciar Vivaldi: {e}")
+        return None
+
+# =====================================================
+# CLASE CDP CLIENT
 # =====================================================
 
 class CDPClient:
@@ -144,7 +178,6 @@ class CDPClient:
             print(f"✗ Error enviando comando: {e}")
             return None
         
-        # Esperar respuesta
         start = time.time()
         while True:
             with self.lock:
@@ -169,8 +202,6 @@ class CDPClient:
                 return None
             
             if 'exceptionDetails' in result:
-                error_text = result['exceptionDetails'].get('text', 'Unknown error')
-                # No imprimir errores menores, solo retornar None
                 return None
             
             if 'result' not in result:
@@ -178,15 +209,12 @@ class CDPClient:
             
             result_obj = result['result']
             
-            # Estructura anidada
             if list(result_obj.keys()) == ['result']:
                 result_obj = result_obj['result']
             
-            # Valor directo
             if 'value' in result_obj:
                 return result_obj['value']
             
-            # Por tipo
             obj_type = result_obj.get('type')
             
             if obj_type == 'undefined':
@@ -218,7 +246,6 @@ class CDPClient:
         result = self.send_command("Page.navigate", {"url": url})
         time.sleep(2)
         
-        # Esperar carga
         max_wait = 15
         start = time.time()
         while time.time() - start < max_wait:
@@ -240,17 +267,14 @@ class CDPClient:
             except:
                 pass
 
-
 # =====================================================
 # FUNCIONES AUXILIARES
 # =====================================================
 
 def generar_hash_contenido(contenido):
     """Genera hash único para detectar duplicados"""
-    # Usar primeros 200 caracteres para hash
     texto_limpio = contenido[:200].strip().lower()
     return hashlib.md5(texto_limpio.encode()).hexdigest()
-
 
 def contar_posts_en_dom(client):
     """Cuenta posts actualmente en el DOM"""
@@ -263,7 +287,6 @@ def contar_posts_en_dom(client):
         return count if count else 0
     except:
         return 0
-
 
 def contar_comentarios_visibles(client):
     """Cuenta comentarios visibles en la página actual"""
@@ -284,7 +307,6 @@ def contar_comentarios_visibles(client):
     except:
         return 0
 
-
 # =====================================================
 # FUNCIONES DE SCRAPING - GENERALES
 # =====================================================
@@ -302,7 +324,6 @@ def conectar_navegador():
 
         print(f"✓ Encontradas {len(tabs)} tabs en Vivaldi\n")
 
-        # Buscar tab de Facebook tipo 'page'
         tab = None
         for t in tabs:
             url = t.get('url', '')
@@ -314,7 +335,6 @@ def conectar_navegador():
                 break
         
         if not tab:
-            # Buscar cualquier tab tipo 'page'
             for t in tabs:
                 if t.get('type') == 'page':
                     tab = t
@@ -323,26 +343,18 @@ def conectar_navegador():
         
         if not tab:
             print("\n✗ No se encontró tab tipo 'page'")
-            print("\n📌 SOLUCIÓN:")
-            print("   1. En Edge, abre nueva pestaña (Ctrl+T)")
-            print("   2. Navega a https://www.facebook.com")
-            print("   3. Inicia sesión")
-            print("   4. Ejecuta este script\n")
             return None
         
         print(f"✓ Conectando a: {tab.get('title', 'Sin título')[:50]}")
         
-        # Conectar via WebSocket
         ws_url = tab['webSocketDebuggerUrl']
         client = CDPClient(ws_url)
         client.connect()
         
-        # Habilitar Runtime y Page
         print("Habilitando Runtime y Page...")
         client.send_command("Runtime.enable")
         client.send_command("Page.enable")
         
-        # Verificar JavaScript
         print("Verificando JavaScript...")
         test = client.evaluate("1 + 1")
         
@@ -355,20 +367,15 @@ def conectar_navegador():
         
     except requests.exceptions.ConnectionError:
         print(f"✗ No se pudo conectar al puerto {VIVALDI_DEBUG_PORT}")
-        print(f"✗ Abre Vivaldi con:")
-        print(f'   "C:\\Program Files (x86)\\Vivaldi\\Application\\vivaldi.exe" --remote-debugging-port={VIVALDI_DEBUG_PORT} --remote-allow-origins=*')
         return None
     except Exception as e:
         print(f"✗ Error al conectar: {e}")
         return None
 
-
 def simular_interaccion_humana(client, tipo='scroll', config=CONFIG):
-    """Simula comportamiento humano (estilo Reddit pero con CDP)"""
-    
+    """Simula comportamiento humano"""
     try:
         if tipo == 'scroll':
-            # Scroll variable
             scroll_amount = random.randint(300, 800)
             client.evaluate(f"window.scrollBy(0, {scroll_amount});")
             pausa = random.uniform(0.5, 1.5)
@@ -376,7 +383,6 @@ def simular_interaccion_humana(client, tipo='scroll', config=CONFIG):
             return True
             
         elif tipo == 'mouse_move':
-            # Mouse aleatorio según probabilidad
             if random.random() < config['probabilidad_mouse']:
                 script = f"""
                 (function() {{
@@ -400,24 +406,18 @@ def simular_interaccion_humana(client, tipo='scroll', config=CONFIG):
     except Exception as e:
         return False
 
-
 def scroll_pagina(client, config=CONFIG):
-    """Scroll inteligente con detección de cambios (estilo Reddit)"""
-    
+    """Scroll inteligente con detección de cambios"""
     try:
-        # Altura antes
         altura_antes = client.evaluate("document.body.scrollHeight")
         if altura_antes is None:
             return False
         
-        # Hacer scroll
         client.evaluate("window.scrollTo(0, document.body.scrollHeight);")
         
-        # Pausa parametrizable
         pausa = random.uniform(*config['scroll_pausa'])
         time.sleep(pausa)
         
-        # Altura después
         altura_despues = client.evaluate("document.body.scrollHeight")
         if altura_despues is None:
             return False
@@ -432,16 +432,13 @@ def scroll_pagina(client, config=CONFIG):
         print(f"✗ Error en scroll: {e}")
         return False
 
-
 def expandir_contenido(client):
     """Expande botones 'Ver más' y comentarios"""
-    
     try:
         script = """
         (function() {
             let clicks = 0;
             
-            // 1. Expandir "Ver más" en posts
             const verMasBotones = Array.from(document.querySelectorAll('div[role="button"]'))
                 .filter(btn => {
                     const text = btn.textContent.trim();
@@ -456,7 +453,6 @@ def expandir_contenido(client):
                 } catch(e) {}
             });
             
-            // 2. Expandir comentarios
             const comentariosBotones = Array.from(document.querySelectorAll('span'))
                 .filter(s => s.textContent.includes('Ver más comentarios') || 
                              s.textContent.includes('comentarios anteriores'));
@@ -482,19 +478,17 @@ def expandir_contenido(client):
     except Exception as e:
         return 0
 
-
 # =====================================================
 # FUNCIONES DE SCRAPING - POSTS
 # =====================================================
 
 def extraer_posts_facebook(client, termino, max_posts=10, config=CONFIG):
-    """Extrae posts con scroll inteligente y deduplicación (estilo Reddit)"""
+    """Extrae posts con scroll inteligente y deduplicación"""
     
     print(f"\n{'='*60}")
     print(f"FACEBOOK | Buscando: {termino}")
     print(f"{'='*60}")
     
-    # Navegar a búsqueda
     url_busqueda = f"https://www.facebook.com/search/posts/?q={termino.replace(' ', '%20')}"
     print(f"Navegando a: {url_busqueda}")
     
@@ -502,24 +496,19 @@ def extraer_posts_facebook(client, termino, max_posts=10, config=CONFIG):
     if not url_actual or termino.replace(" ", "%20") not in url_actual:
         client.navigate(url_busqueda)
     
-    # Esperar carga inicial
     print(f"⏳ Esperando carga inicial ({PAUSA_PRIMERA_CARGA}s)...")
     time.sleep(PAUSA_PRIMERA_CARGA)
     
-    # Contar posts iniciales
     posts_en_dom = contar_posts_en_dom(client)
     print(f"📊 Posts en DOM: {posts_en_dom}")
     
-    # Pausa humana inicial
     pausa_inicial = random.uniform(*config['tiempo_espera'])
     time.sleep(pausa_inicial)
     
-    # Movimiento de mouse inicial
     moved = simular_interaccion_humana(client, 'mouse_move', config)
     if moved:
         print("🖱️  Movimiento de mouse")
     
-    # Script de extracción
     script_extraccion = """
     (function () {
         const posts = [];
@@ -533,7 +522,6 @@ def extraer_posts_facebook(client, termino, max_posts=10, config=CONFIG):
             try {
                 let container = msgNode;
                 
-                // Subir hasta encontrar contenedor de post
                 for (let i = 0; i < 6; i++) {
                     if (!container.parentElement) break;
                     container = container.parentElement;
@@ -547,23 +535,19 @@ def extraer_posts_facebook(client, termino, max_posts=10, config=CONFIG):
                 if (!container || seen.has(container)) return;
                 seen.add(container);
                 
-                // CONTENIDO
                 let contenido = msgNode.textContent.trim();
                 if (!contenido || contenido.length < 20) return;
                 
-                // AUTOR
                 let autor = 'Desconocido';
                 const header = container.querySelector('h2, h3, strong, a[role="link"]');
                 if (header && header.textContent.length < 100) {
                     autor = header.textContent.trim();
                 }
                 
-                // TIMESTAMP
                 let timestamp = '';
                 const timeElem = container.querySelector('a[href*="/posts/"] span, a[href*="story"] span');
                 if (timeElem) timestamp = timeElem.textContent.trim();
                 
-                // ESTADÍSTICAS
                 let numComentarios = 0;
                 let numReacciones = 0;
                 
@@ -581,7 +565,6 @@ def extraer_posts_facebook(client, termino, max_posts=10, config=CONFIG):
                         numReacciones = Math.max(numReacciones, val);
                 });
                 
-                // URL del post
                 let postUrl = '';
                 const linkElem = container.querySelector('a[href*="/posts/"], a[href*="story"]');
                 if (linkElem) postUrl = linkElem.href;
@@ -604,7 +587,6 @@ def extraer_posts_facebook(client, termino, max_posts=10, config=CONFIG):
     })();
     """
     
-    # Extracción inicial
     print("\n→ Extracción inicial")
     posts_actuales = client.evaluate(script_extraccion)
     
@@ -614,7 +596,6 @@ def extraer_posts_facebook(client, termino, max_posts=10, config=CONFIG):
     posts_extraidos = []
     posts_hashes_vistos = set()
     
-    # Agregar posts iniciales
     for post in posts_actuales:
         contenido_hash = generar_hash_contenido(post['contenido'])
         
@@ -624,7 +605,7 @@ def extraer_posts_facebook(client, termino, max_posts=10, config=CONFIG):
         posts_hashes_vistos.add(contenido_hash)
         
         post_data = {
-            "id_post": contenido_hash[:12],  # Usar hash como ID
+            "id_post": contenido_hash[:12],
             "tipo": "post",
             "autor": post["autor"],
             "contenido": post["contenido"],
@@ -647,7 +628,6 @@ def extraer_posts_facebook(client, termino, max_posts=10, config=CONFIG):
         if len(posts_extraidos) >= max_posts:
             break
     
-    # SCROLL INTELIGENTE (estilo Reddit)
     if len(posts_extraidos) < max_posts:
         posts_faltantes = max_posts - len(posts_extraidos)
         scrolls_estimados = math.ceil(posts_faltantes / POSTS_ESTIMADOS_POR_SCROLL)
@@ -662,12 +642,10 @@ def extraer_posts_facebook(client, termino, max_posts=10, config=CONFIG):
             
             print(f"\n[Scroll {intentos_scroll + 1}/{MAX_SCROLLS}]")
             
-            # Mouse aleatorio
             moved = simular_interaccion_humana(client, 'mouse_move', config)
             if moved:
                 print("  🖱️  Movimiento de mouse")
             
-            # Scroll
             hubo_cambio = scroll_pagina(client, config)
             intentos_scroll += 1
             
@@ -679,14 +657,11 @@ def extraer_posts_facebook(client, termino, max_posts=10, config=CONFIG):
             else:
                 sin_nuevos = 0
             
-            # Expandir contenido
             if EXPANDIR_VER_MAS:
                 expandir_contenido(client)
             
-            # Pausa adicional
             time.sleep(random.uniform(1, 2))
             
-            # Extraer nuevos posts
             posts_actuales = client.evaluate(script_extraccion)
             
             if not posts_actuales:
@@ -736,16 +711,12 @@ def extraer_posts_facebook(client, termino, max_posts=10, config=CONFIG):
     
     return posts_extraidos
 
-
 # =====================================================
-# FUNCIONES DE SCRAPING - COMENTARIOS
+# FUNCIONES DE SCRAPING - COMENTARIOS (SIMPLIFICADAS)
 # =====================================================
 
 def extraer_comentarios_post(client, post_data, max_comentarios=30):
-    """
-    Extrae comentarios de un post específico
-    Nota: Como CDP no puede abrir pestañas, trabaja en la página actual
-    """
+    """Extrae comentarios de un post específico"""
     
     print(f"\n  💬 Extrayendo comentarios del post {post_data['id_post']}...")
     
@@ -755,35 +726,28 @@ def extraer_comentarios_post(client, post_data, max_comentarios=30):
         print(f"    ⚠ URL de post no válida")
         return []
     
-    # Navegar al post
     print(f"    → Navegando al post...")
     client.navigate(post_url)
     
-    # Esperar carga
     print(f"    ⏳ Esperando carga de comentarios...")
     time.sleep(PAUSA_PRIMERA_CARGA)
     
-    # Contar comentarios visibles
     comentarios_visibles = contar_comentarios_visibles(client)
     print(f"    📊 Comentarios visibles: {comentarios_visibles}")
     
-    # Validación rápida
     if comentarios_visibles < MIN_COMENTARIOS_THRESHOLD:
         print(f"    ⚠ Menos de {MIN_COMENTARIOS_THRESHOLD} comentarios, extracción rápida")
         comentarios = extraer_comentarios_simples(client, post_data['id_post'])
         return comentarios
     
-    # Expandir comentarios si está habilitado
     if MAX_EXPANDIR_COMENTARIOS > 0:
         expandir_comentarios_colapsados(client, MAX_EXPANDIR_COMENTARIOS)
     
-    # Script de extracción de comentarios
     script_comentarios = """
     (function () {
         const comentarios = [];
         const seen = new Set();
         
-        // Buscar spans con comentarios
         document.querySelectorAll('span[dir="auto"]').forEach(span => {
             try {
                 const txt = span.textContent.trim();
@@ -793,7 +757,6 @@ def extraer_comentarios_post(client, post_data, max_comentarios=30):
                 if (seen.has(txt)) return;
                 seen.add(txt);
                 
-                // Buscar autor del comentario (elemento padre)
                 let autor = 'Desconocido';
                 let parent = span.parentElement;
                 
@@ -820,7 +783,6 @@ def extraer_comentarios_post(client, post_data, max_comentarios=30):
     })();
     """
     
-    # Extracción inicial
     comentarios_actuales = client.evaluate(script_comentarios)
     
     if not comentarios_actuales:
@@ -829,7 +791,6 @@ def extraer_comentarios_post(client, post_data, max_comentarios=30):
     comentarios_extraidos = []
     comentarios_textos_vistos = set()
     
-    # Agregar comentarios iniciales
     for comentario in comentarios_actuales:
         texto = comentario['texto']
         
@@ -849,7 +810,6 @@ def extraer_comentarios_post(client, post_data, max_comentarios=30):
     
     print(f"    ✓ Extraídos {len(comentarios_extraidos)} comentarios iniciales")
     
-    # Scroll para más comentarios si es necesario
     if len(comentarios_extraidos) < max_comentarios and comentarios_visibles >= MIN_COMENTARIOS_THRESHOLD:
         
         print(f"    📜 Scroll para más comentarios...")
@@ -859,7 +819,6 @@ def extraer_comentarios_post(client, post_data, max_comentarios=30):
         
         while len(comentarios_extraidos) < max_comentarios and intentos_scroll < MAX_SCROLLS_COMENTARIOS:
             
-            # Scroll
             hubo_cambio = scroll_pagina(client, CONFIG)
             intentos_scroll += 1
             
@@ -873,7 +832,6 @@ def extraer_comentarios_post(client, post_data, max_comentarios=30):
             
             time.sleep(1)
             
-            # Extraer nuevos comentarios
             comentarios_actuales = client.evaluate(script_comentarios)
             
             if not comentarios_actuales:
@@ -907,7 +865,6 @@ def extraer_comentarios_post(client, post_data, max_comentarios=30):
     print(f"    ✅ Total: {len(comentarios_extraidos)} comentarios extraídos")
     
     return comentarios_extraidos
-
 
 def extraer_comentarios_simples(client, post_id):
     """Extracción rápida de comentarios sin scroll"""
@@ -969,7 +926,6 @@ def extraer_comentarios_simples(client, post_id):
     
     return comentarios_extraidos
 
-
 def expandir_comentarios_colapsados(client, max_expandir=3):
     """Expande comentarios colapsados"""
     
@@ -1013,73 +969,56 @@ def expandir_comentarios_colapsados(client, max_expandir=3):
         print(f"  ⚠ Error expandiendo: {e}")
         return 0
 
-
 # =====================================================
-# MAIN
+# MAIN - CONTROLADO POR ORQUESTADOR
 # =====================================================
 
-def main(temas_buscar=None, posts_por_tema=None):
-    """
-    Args:
-        temas_buscar: Lista de términos o None para usar TERMINOS_BUSQUEDA
-        posts_por_tema: Número de posts o None para usar MAX_POSTS
-    """
+async def main(posts_por_tema, temas_buscar):
+    """Main para ser llamado por el orquestador"""
     
-    # Usar valores recibidos o por defecto
-    if temas_buscar is None:
-        temas_buscar = TERMINOS_BUSQUEDA
+    # Abrir Vivaldi con debugging
+    proceso_vivaldi = abrir_vivaldi_con_debugging()
     
-    if posts_por_tema is None:
-        posts_por_tema = MAX_POSTS * 4
-    
-    """Main mejorado con técnicas de Reddit + invisibilidad de CDP"""
-
-    # AUMENTO DE POSTS PARA COMPENSAR FILTRADO Y ELIMINACION DE COMENTARIOS
-    posts_por_tema = posts_por_tema * 3
-    modo_texto = "RÁPIDO" if MODO_RAPIDO else "BALANCEADO"
-    
-    print(f"""
-    ╔════════════════════════════════════════════════════╗
-    ║   EXTRACTOR FACEBOOK v2.0 - CDP + Reddit Tech      ║
-    ╚════════════════════════════════════════════════════╝
-    
-⚙️  CONFIGURACIÓN - POSTS:
-   • Modo: {modo_texto}
-   • Posts objetivo: {posts_por_tema}X4 por término
-   • Scroll inteligente: ✓ ACTIVADO
-   • Deduplicación: {'✓ ACTIVADA' if DEDUPLICAR_POSTS else '✗ DESACTIVADA'}
-   • Mouse aleatorio: {int(CONFIG['probabilidad_mouse']*100)}%
-
-💬 CONFIGURACIÓN - COMENTARIOS:
-   • Extracción: {'✓ ACTIVADA' if EXTRAER_COMENTARIOS else '✗ DESACTIVADA'}
-   • Max comentarios/post: {MAX_COMENTARIOS_POR_POST}
-   • Expandir ver más: {'✓ SÍ' if EXPANDIR_VER_MAS else '✗ NO'}
-   • Max expandir: {MAX_EXPANDIR_COMENTARIOS}
-    
-📌 INSTRUCCIONES:
-1. Abre CMD/PowerShell y ejecuta:
-   "C:\\Program Files (x86)\\Microsoft\\Vivaldi\\Application\\msedge.exe" --remote-debugging-port={VIVALDI_DEBUG_PORT} --remote-allow-origins=*
-
-2. En Edge, navega a Facebook e inicia sesión
-
-3. Presiona ENTER aquí para comenzar
-    """)
-    
-    #input("Presiona ENTER cuando estés listo...")
-    
-    tiempo_inicio = datetime.now()
-    todos_posts = []
-    todos_comentarios = []
-    
-    # Conectar
-    client = conectar_navegador()
-    if not client:
-        print("\n✗ No se pudo conectar al navegador")
+    if proceso_vivaldi is None:
+        print("❌ No se pudo iniciar Vivaldi. Abortando...")
         return
     
-    print("✓ Conexión CDP establecida\n")
-    
     try:
+        # Esperar conexión
+        tiempo_inicio = datetime.now()
+        todos_posts = []
+        todos_comentarios = []
+        
+        # Conectar
+        max_intentos = 5
+        intentos = 0
+        client = None
+        
+        while intentos < max_intentos and client is None:
+            try:
+                intentos += 1
+                print(f"Intento de conexión #{intentos}...")
+                client = conectar_navegador()
+                if client:
+                    print("✅ Conectado a Vivaldi")
+                    break
+            except Exception as e:
+                if intentos < max_intentos:
+                    print(f"⏳ Esperando conexión... ({intentos}/{max_intentos})")
+                    time.sleep(2)
+                else:
+                    print(f"❌ No se pudo conectar a Vivaldi después de {max_intentos} intentos")
+                    return
+        
+        if not client:
+            print("\n✗ No se pudo conectar al navegador")
+            return
+        
+        print("✓ Conexión CDP establecida\n")
+        
+        # Ajuste de posts por tema
+        posts_ajustados = posts_por_tema * 3
+        
         # Extracción de posts
         for i, termino in enumerate(temas_buscar, 1):
             print(f"\n[{i}/{len(temas_buscar)}] Procesando término: '{termino}'")
@@ -1087,40 +1026,11 @@ def main(temas_buscar=None, posts_por_tema=None):
             posts = extraer_posts_facebook(
                 client,
                 termino,
-                max_posts=posts_por_tema,
+                max_posts=posts_ajustados,
                 config=CONFIG
             )
             
             todos_posts.extend(posts)
-            
-            # Extracción de comentarios
-            if EXTRAER_COMENTARIOS and len(posts) > 0:
-                print(f"\n{'─'*60}")
-                print(f"💬 EXTRAYENDO COMENTARIOS ({len(posts)} posts)")
-                print(f"{'─'*60}")
-                
-                for idx, post in enumerate(posts, 1):
-                    print(f"\n  [{idx}/{len(posts)}] Post: {post['id_post']}...")
-                    
-                    comentarios = extraer_comentarios_post(
-                        client,
-                        post,
-                        max_comentarios=MAX_COMENTARIOS_POR_POST
-                    )
-                    
-                    todos_comentarios.extend(comentarios)
-                    
-                    # Pausa entre posts
-                    if idx < len(posts):
-                        pausa = random.uniform(*PAUSA_ENTRE_POSTS)
-                        print(f"  ⏸  Pausa {pausa:.1f}s...")
-                        time.sleep(pausa)
-                    
-                    # Volver a la búsqueda
-                    print(f"  ↩️  Volviendo a la búsqueda...")
-                    url_busqueda = f"https://www.facebook.com/search/posts/?q={termino.replace(' ', '%20')}"
-                    client.navigate(url_busqueda)
-                    time.sleep(3)
             
             # Pausa entre términos
             if i < len(temas_buscar):
@@ -1128,14 +1038,13 @@ def main(temas_buscar=None, posts_por_tema=None):
                 print(f"\n⏸  Pausa de {pausa:.1f}s antes del siguiente término...")
                 time.sleep(pausa)
         
-        # Guardar en CSV unificado
+        # Guardar en CSV
         import os
         os.makedirs('datos_extraidos', exist_ok=True)
         
         if todos_posts or todos_comentarios:
             datos_unificados = []
             
-            # Agregar posts
             for post in todos_posts:
                 datos_unificados.append({
                     "id_post": post["id_post"],
@@ -1150,7 +1059,6 @@ def main(temas_buscar=None, posts_por_tema=None):
                     "url": post.get("url", "")
                 })
             
-            # Agregar comentarios
             for comentario in todos_comentarios:
                 datos_unificados.append({
                     "id_post": comentario["id_post"],
@@ -1165,7 +1073,6 @@ def main(temas_buscar=None, posts_por_tema=None):
                     "url": ""
                 })
             
-            # Guardar CSV
             df_unificado = pd.DataFrame(datos_unificados)
             nombre_archivo = 'datos_extraidos/facebook.csv'
             df_unificado.to_csv(nombre_archivo, index=False, encoding='utf-8-sig')
@@ -1180,30 +1087,145 @@ def main(temas_buscar=None, posts_por_tema=None):
             print(f"   • Posts: {len(todos_posts)}")
             print(f"   • Comentarios: {len(todos_comentarios)}")
             print(f"🔑 Posts únicos: {len(set(p['id_post'] for p in todos_posts))}")
-            
-            if todos_comentarios:
-                comentarios_unicos = len(set((c['id_post'], c['contenido'][:50]) for c in todos_comentarios))
-                print(f"🔑 Comentarios únicos: {comentarios_unicos}")
-            
             print(f"\n⏱️  Tiempo total: {tiempo_total:.1f} segundos")
-            
-            if EXTRAER_COMENTARIOS and todos_posts:
-                promedio = tiempo_total / len(todos_posts)
-                print(f"⏱️  Tiempo promedio/post: {promedio:.1f} segundos")
-            
             print(f"{'='*60}\n")
         
         else:
             print("\n✗ No se extrajo ningún post")
-            print("Verifica que:")
-            print("  1. Hayas iniciado sesión en Facebook")
-            print("  2. Los términos de búsqueda tengan resultados")
     
-    except KeyboardInterrupt:
-        print("\n\n⚠ Extracción interrumpida")
-        if todos_posts:
-            print(f"Guardando {len(todos_posts)} posts parciales...")
-            # Guardar datos parciales...
+    except Exception as e:
+        print(f"\n✗ Error: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    if 'client' in locals() and client:  # o 'proceso_edge' o 'proceso_brave' o 'proceso_vivaldi'
+        print("\nCerrando conexión...")
+
+# =====================================================
+# MAIN - LOCAL (para ejecución directa)
+# =====================================================
+
+def main_local():
+    """Main local para ejecución directa del script"""
+    
+    TERMINOS_BUSQUEDA = [
+        "nicolas muñoz",
+    ]
+    
+    posts_por_tema = MAX_POSTS
+    
+    # Abrir Vivaldi
+    proceso_vivaldi = abrir_vivaldi_con_debugging()
+    
+    if proceso_vivaldi is None:
+        print("❌ No se pudo iniciar Vivaldi. Abortando...")
+        return
+    
+    try:
+        tiempo_inicio = datetime.now()
+        todos_posts = []
+        todos_comentarios = []
+        
+        # Conectar
+        max_intentos = 5
+        intentos = 0
+        client = None
+        
+        while intentos < max_intentos and client is None:
+            try:
+                intentos += 1
+                print(f"Intento de conexión #{intentos}...")
+                client = conectar_navegador()
+                if client:
+                    print("✅ Conectado a Vivaldi")
+                    break
+            except Exception as e:
+                if intentos < max_intentos:
+                    print(f"⏳ Esperando conexión... ({intentos}/{max_intentos})")
+                    time.sleep(2)
+                else:
+                    print(f"❌ No se pudo conectar a Vivaldi después de {max_intentos} intentos")
+                    return
+        
+        if not client:
+            print("\n✗ No se pudo conectar al navegador")
+            return
+        
+        print("✓ Conexión CDP establecida\n")
+        
+        posts_ajustados = posts_por_tema * 3
+        
+        for i, termino in enumerate(TERMINOS_BUSQUEDA, 1):
+            print(f"\n[{i}/{len(TERMINOS_BUSQUEDA)}] Procesando término: '{termino}'")
+            
+            posts = extraer_posts_facebook(
+                client,
+                termino,
+                max_posts=posts_ajustados,
+                config=CONFIG
+            )
+            
+            todos_posts.extend(posts)
+            
+            if i < len(TERMINOS_BUSQUEDA):
+                pausa = random.uniform(*PAUSA_ENTRE_TERMINOS)
+                print(f"\n⏸  Pausa de {pausa:.1f}s antes del siguiente término...")
+                time.sleep(pausa)
+        
+        # Guardar CSV
+        import os
+        os.makedirs('datos_extraidos', exist_ok=True)
+        
+        if todos_posts or todos_comentarios:
+            datos_unificados = []
+            
+            for post in todos_posts:
+                datos_unificados.append({
+                    "id_post": post["id_post"],
+                    "tipo": post["tipo"],
+                    "autor": post["autor"],
+                    "contenido": post["contenido"],
+                    "timestamp": post.get("timestamp", ""),
+                    "num_comentarios": post.get("num_comentarios", 0),
+                    "num_reacciones": post.get("num_reacciones", 0),
+                    "tema_busqueda": post["tema_busqueda"],
+                    "fecha_extraccion": post["fecha_extraccion"],
+                    "url": post.get("url", "")
+                })
+            
+            for comentario in todos_comentarios:
+                datos_unificados.append({
+                    "id_post": comentario["id_post"],
+                    "tipo": comentario["tipo"],
+                    "autor": comentario["autor"],
+                    "contenido": comentario["contenido"],
+                    "timestamp": "",
+                    "num_comentarios": "",
+                    "num_reacciones": "",
+                    "tema_busqueda": comentario["tema_busqueda"],
+                    "fecha_extraccion": comentario["fecha_extraccion"],
+                    "url": ""
+                })
+            
+            df_unificado = pd.DataFrame(datos_unificados)
+            nombre_archivo = 'datos_extraidos/facebook.csv'
+            df_unificado.to_csv(nombre_archivo, index=False, encoding='utf-8-sig')
+            
+            tiempo_total = (datetime.now() - tiempo_inicio).total_seconds()
+            
+            print(f"\n{'='*60}")
+            print(f"✓ EXTRACCIÓN COMPLETADA")
+            print(f"{'='*60}")
+            print(f"📁 Archivo: {nombre_archivo}")
+            print(f"📊 Total registros: {len(datos_unificados)}")
+            print(f"   • Posts: {len(todos_posts)}")
+            print(f"   • Comentarios: {len(todos_comentarios)}")
+            print(f"🔑 Posts únicos: {len(set(p['id_post'] for p in todos_posts))}")
+            print(f"\n⏱️  Tiempo total: {tiempo_total:.1f} segundos")
+            print(f"{'='*60}\n")
+        
+        else:
+            print("\n✗ No se extrajo ningún post")
     
     except Exception as e:
         print(f"\n✗ Error: {e}")
@@ -1211,13 +1233,23 @@ def main(temas_buscar=None, posts_por_tema=None):
         traceback.print_exc()
     
     finally:
-        print("\nCerrando conexión...")
-        client.close()
-        print("✓ Conexión cerrada\n")
+        print("\n" + "=" * 70)
+        print("🔒 Cerrando Vivaldi automáticamente...")
+        try:
+            if proceso_vivaldi:
+                proceso_vivaldi.terminate()
+                print("✅ Vivaldi cerrado")
+        except Exception as e:
+            print(f"Error al cerrar Vivaldi: {e}")
 
+
+# =====================================================
+# PUNTO DE ENTRADA
+# =====================================================
 
 if __name__ == "__main__":
-    main(
-        temas_buscar=TERMINOS_BUSQUEDA,
-        posts_por_tema=MAX_POSTS
-    )
+    import asyncio
+    asyncio.run(main(
+        posts_por_tema=10,
+        temas_buscar=["nicolas muñoz"]
+    ))

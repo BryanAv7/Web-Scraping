@@ -17,7 +17,7 @@ import math
 # =====================================================
 
 TERMINOS_BUSQUEDA = [
-    "nicolas maduro capturado",
+    "nicolas muñoz",
 ]
 
 # Configuración de posts
@@ -43,8 +43,8 @@ MAX_SCROLLS_COMENTARIOS = 5  # Máximo de scrolls por post
 MIN_COMENTARIOS_THRESHOLD = 5  # Si hay menos, salir rápido
 
 # Tiempos para comentarios (PARAMETRIZABLES)
-PAUSA_SCROLL_COMENTARIOS = 1.5  # Pausa entre scrolls en comentarios
-PAUSA_PRIMERA_CARGA_COMENTARIOS = 3.0  # Espera inicial de carga de comentarios
+PAUSA_SCROLL_COMENTARIOS = 0.5  # Pausa entre scrolls en comentarios
+PAUSA_PRIMERA_CARGA_COMENTARIOS = 1.5  # Espera inicial de carga de comentarios
 PAUSA_ENTRE_POSTS_COMENTARIOS = (2, 4)  # Pausa entre posts (min, max) en segundos
 PAUSA_EXPANSION_COLAPSADOS = 1.5  # Pausa después de expandir [+]
 PAUSA_LOAD_MORE = 2.0  # Pausa después de click en "Load more"

@@ -21,10 +21,10 @@ logger = logging.getLogger(__name__)
 # CONFIGURACIÓN PRINCIPAL
 # ==========================================
 
-POSTS_POR_TEMA = 50
+POSTS_POR_TEMA = 20
 
 TEMAS_BUSCAR = [
-    "nicolas muñoz",
+    "nicolas maduro capturado",
 ]
 
 # ==========================================
@@ -42,7 +42,7 @@ MAX_WORKERS = 4
 TIMEOUT = 600
 
 SCRIPT_PREPROCESAMIENTO = "pipeline/preprocesamiento.py"
-RUTA_MAIN2 = "Parte2/main2.py"  
+RUTA_MAIN2 = "main2.py" 
 
 # ==========================================
 # EJECUTAR UN EXTRACTOR EN PROCESO

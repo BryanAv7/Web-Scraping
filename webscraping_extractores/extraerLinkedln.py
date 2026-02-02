@@ -1,6 +1,7 @@
 """
 ====================================
 EXTRACTOR LINKEDIN
+CON APERTURA AUTOMÁTICA DE EDGE
 ====================================
 """
 
@@ -9,6 +10,9 @@ import csv
 import random
 import logging
 import hashlib
+import subprocess
+import time
+import os
 from datetime import datetime
 from urllib.parse import quote
 from playwright.async_api import async_playwright
@@ -22,6 +26,50 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# --------------------------------------------------
+# CONFIGURACIÓN DE EDGE
+# --------------------------------------------------
+EDGE_PATH = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+DEBUG_PORT = 9223
+
+# --------------------------------------------------
+# FUNCIÓN PARA ABRIR EDGE
+# --------------------------------------------------
+def abrir_edge_con_debugging():
+    """Abre Edge con remote debugging habilitado en el puerto 9223"""
+    logger.info("=" * 70)
+    logger.info("Iniciando Edge con modo de depuración remota...")
+    logger.info(f"Puerto: {DEBUG_PORT}")
+    logger.info("=" * 70)
+    
+    if not os.path.exists(EDGE_PATH):
+        logger.error(f"❌ No se encontró Edge en: {EDGE_PATH}")
+        logger.error("Por favor, verifica la ruta de instalación")
+        return None
+    
+    cmd = [
+        EDGE_PATH,
+        f"--remote-debugging-port={DEBUG_PORT}",
+        "--remote-allow-origins=*",
+        "https://www.linkedin.com"
+    ]
+    
+    try:
+        proceso = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        
+        logger.info("✅ Edge iniciado correctamente")
+        logger.info("⏳ Esperando a que el navegador esté listo...")
+        time.sleep(5)
+        
+        return proceso
+        
+    except Exception as e:
+        logger.error(f"❌ Error al iniciar Edge: {e}")
+        return None
 
 # --------------------------------------------------
 # NORMALIZACIÓN DE TEXTO
@@ -154,11 +202,24 @@ class ExtractorLinkedInPosts:
 
     async def ejecutar(self):
         async with async_playwright() as p:
-            try:
-                browser = await p.chromium.connect_over_cdp("http://localhost:9223")
-            except:
-                logger.error("No se pudo conectar a Edge (9223)")
-                return False
+            max_intentos = 5
+            intentos = 0
+            browser = None
+            
+            while intentos < max_intentos and browser is None:
+                try:
+                    intentos += 1
+                    logger.info(f"Intento de conexión #{intentos}...")
+                    browser = await p.chromium.connect_over_cdp(f"http://localhost:{DEBUG_PORT}")
+                    logger.info("✅ Conectado a Edge")
+                except Exception as e:
+                    if intentos < max_intentos:
+                        logger.warning(f"⏳ Esperando conexión... ({intentos}/{max_intentos})")
+                        await asyncio.sleep(2)
+                    else:
+                        logger.error(f"❌ No se pudo conectar a Edge después de {max_intentos} intentos")
+                        logger.error(f"Error: {e}")
+                        return False
 
             context = browser.contexts[0]
             page = context.pages[0]
@@ -181,6 +242,9 @@ def guardar_csv(datos, archivo="datos_extraidos/linkedin.csv"):
         logger.error("No hay datos para guardar.")
         return
 
+    # Crear directorio si no existe
+    os.makedirs(os.path.dirname(archivo), exist_ok=True)
+
     campos = ["tema_busqueda", "contenido", "fecha_extraccion", "fuente"]
 
     with open(archivo, "w", newline="", encoding="utf-8") as f:
@@ -193,40 +257,94 @@ def guardar_csv(datos, archivo="datos_extraidos/linkedin.csv"):
 
 
 # --------------------------------------------------
-# MAIN
+# MAIN - CONTROLADO POR ORQUESTADOR
 # --------------------------------------------------
 async def main(posts_por_tema=20, temas_buscar=None):
-    logger.info("=" * 60)
-    logger.info("EXTRACTOR LINKEDIN")
-    logger.info("=" * 60)
-
-
-    posts_por_tema = posts_por_tema * 3
-    #logger.info(f"Posts solicitados por el orquestador: {posts_por_tema}")
-    #logger.info(f"Posts reales a buscar (x3): {posts_real}")
+    """Main para ser llamado por el orquestador"""
     
-    extractor = ExtractorLinkedInPosts(
-        posts_por_tema=posts_por_tema,
-        temas_buscar=temas_buscar
-    )
+    # Abrir Edge con debugging
+    proceso_edge = abrir_edge_con_debugging()
+    
+    if proceso_edge is None:
+        logger.error("❌ No se pudo iniciar Edge. Abortando...")
+        return
+    
+    try:
+        logger.info("=" * 60)
+        logger.info("EXTRACTOR LINKEDIN")
+        logger.info("=" * 60)
 
-    ok = await extractor.ejecutar()
+        posts_por_tema = posts_por_tema * 3
+        
+        extractor = ExtractorLinkedInPosts(
+            posts_por_tema=posts_por_tema,
+            temas_buscar=temas_buscar
+        )
 
-    if ok:
-        guardar_csv(extractor.datos)
-        logger.info("Proceso finalizado correctamente")
-    else:
-        logger.error("Proceso falló")
+        ok = await extractor.ejecutar()
+
+        if ok:
+            guardar_csv(extractor.datos)
+            logger.info("Proceso finalizado correctamente")
+        else:
+            logger.error("Proceso falló")
+    
+    finally:
+        logger.info("\n" + "=" * 70)
+        logger.info("🔒 Cerrando Edge automáticamente...")
+        try:
+            proceso_edge.terminate()
+            logger.info("✅ Edge cerrado")
+        except Exception as e:
+            logger.error(f"Error al cerrar Edge: {e}")
+
+
+# --------------------------------------------------
+# MAIN LOCAL (para ejecución directa)
+# --------------------------------------------------
+async def main_local():
+    """Main local para ejecución directa del script"""
+    
+    temas = [
+        "nicolas muñoz",
+    ]
+    
+    # Abrir Edge con debugging
+    proceso_edge = abrir_edge_con_debugging()
+    
+    if proceso_edge is None:
+        logger.error("❌ No se pudo iniciar Edge. Abortando...")
+        return
+    
+    try:
+        logger.info("=" * 60)
+        logger.info("EXTRACTOR LINKEDIN")
+        logger.info("=" * 60)
+
+        extractor = ExtractorLinkedInPosts(
+            posts_por_tema=10,
+            temas_buscar=temas
+        )
+
+        ok = await extractor.ejecutar()
+
+        if ok:
+            guardar_csv(extractor.datos)
+            logger.info("Proceso finalizado correctamente")
+        else:
+            logger.error("Proceso falló")
+    
+    finally:
+        # Preguntar si cerrar Edge
+        logger.info("\n" + "=" * 70)
+        respuesta = input("¿Deseas cerrar Edge? (s/n): ")
+        if respuesta.lower() == 's':
+            logger.info("🔒 Cerrando Edge...")
+            proceso_edge.terminate()
+            logger.info("✅ Edge cerrado")
+        else:
+            logger.info("ℹ️ Edge permanecerá abierto")
 
 
 if __name__ == "__main__":
-    temas = [
-        "nicolas maduro capturado",
-    ]
-
-    asyncio.run(
-        main(
-            posts_por_tema=20,
-            temas_buscar=temas
-        )
-    )
+    asyncio.run(main_local())
