@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Procesamiento</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container-minimal">
+        <form id="searchForm" class="search-form">
+            <div class="search-box">
+                <input 
+                    type="text" 
+                    id="tema" 
+                    name="tema" 
+                    class="search-input" 
+                    placeholder="Ingrese el tema a procesar"
+                    required
+                    autofocus
+                >
+                <button type="submit" class="search-button">Buscar</button>
+            </div>
+            <div class="status-bar">
+                <div class="status-message">Listo para procesar</div>
+            </div>
+        </form>
+
+        <div id="progressSection" style="display: none;">
+            <div class="progress-minimal">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressBar"></div>
+                </div>
+                <div class="progress-text" id="progressText">0%</div>
+            </div>
+            
+            <div class="status-bar">
+                <div class="status-message" id="statusMessage">Iniciando...</div>
+            </div>
+
+            <div class="logs-container" id="logsContainer">
+                <div class="log-entry log-info">
+                    <span class="log-time">--:--:--</span>
+                    <span class="log-message">Esperando inicio del proceso...</span>
+                </div>
+            </div>
+
+            <div class="actions-container" id="actionsContainer" style="display: none;">
+                <button class="search-button" onclick="window.location.href='/dashboard'">
+                    Ver Resultados
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('searchForm');
+        const progressSection = document.getElementById('progressSection');
+        let pollingInterval = null;
+        let logsInterval = null;
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const tema = document.getElementById('tema').value;
+            
+            // Iniciar proceso
+            fetch('/iniciar', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'tema=' + encodeURIComponent(tema)
+            }).then(() => {
+                // Mostrar sección de progreso
+                progressSection.style.display = 'block';
+                
+                // Iniciar polling
+                pollingInterval = setInterval(actualizarEstado, 2000);
+                logsInterval = setInterval(actualizarLogs, 1000);
+                
+                // Primera actualización inmediata
+                actualizarEstado();
+                actualizarLogs();
+            });
+        });
+
+        function actualizarEstado() {
+            fetch('/api/estado')
+                .then(response => response.json())
+                .then(data => {
+                    const progreso = Math.round(data.progreso_porcentaje);
+                    document.getElementById('progressBar').style.width = progreso + '%';
+                    document.getElementById('progressText').textContent = progreso + '%';
+                    
+                    if (data.fase_nombre) {
+                        document.getElementById('statusMessage').textContent = data.fase_nombre;
+                    }
+
+                    if (data.completado) {
+                        document.getElementById('actionsContainer').style.display = 'block';
+                        document.getElementById('statusMessage').textContent = 'Proceso Completado';
+                        clearInterval(pollingInterval);
+                        clearInterval(logsInterval);
+                    }
+
+                    if (data.error) {
+                        document.getElementById('statusMessage').textContent = 'Error: ' + data.error;
+                        clearInterval(pollingInterval);
+                        clearInterval(logsInterval);
+                    }
+                });
+        }
+
+        function actualizarLogs() {
+            fetch('/api/logs')
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById('logsContainer');
+                    
+                    data.logs.forEach(log => {
+                        const logEntry = document.createElement('div');
+                        logEntry.className = 'log-entry log-info';
+                        
+                        if (log.mensaje.includes('✓') || log.mensaje.includes('exitosamente')) {
+                            logEntry.classList.add('log-success');
+                        } else if (log.mensaje.includes('Error') || log.mensaje.includes('❌')) {
+                            logEntry.classList.add('log-error');
+                        } else if (log.mensaje.includes('[FASE')) {
+                            logEntry.classList.add('log-fase');
+                        }
+                        
+                        logEntry.innerHTML = `
+                            <span class="log-time">${log.timestamp}</span>
+                            <span class="log-message">${log.mensaje}</span>
+                        `;
+                        
+                        container.appendChild(logEntry);
+                    });
+
+                    container.scrollTop = container.scrollHeight;
+                });
+        }
+    </script>
+</body>
+</html>

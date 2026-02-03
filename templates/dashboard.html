@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Resultados</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>📊 Dashboard de Resultados</h1>
+            <p class="subtitle">Tema: <strong>{{ tema }}</strong></p>
+        </header>
+
+        <main class="main-content">
+
+            <!-- ================================================
+                 BARRA DE SENTIMIENTO GLOBAL
+                 ================================================ -->
+            <div class="sentimiento-wrapper">
+                <div class="sentimiento-title">Sentimiento Global</div>
+
+                <!-- Tooltip con números (visible al hover) -->
+                <div class="sentimiento-tooltip">
+                    <div class="tooltip-fila">
+                        <div class="tooltip-item">
+                            <div class="valor valor-neg">{{ sentimiento_global.negativo }}</div>
+                            <div class="etiqueta">😫 Negativo</div>
+                        </div>
+                        <div class="tooltip-item">
+                            <div class="valor valor-neu">{{ sentimiento_global.neutral }}</div>
+                            <div class="etiqueta">😀 Neutral</div>
+                        </div>
+                        <div class="tooltip-item">
+                            <div class="valor valor-pos">{{ sentimiento_global.positivo }}</div>
+                            <div class="etiqueta">😆 Positivo</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Barra visual -->
+                <div class="barra-sentimiento">
+                    <!-- Pluma: se posiciona por JS según predomina -->
+                    <div class="pluma" id="pluma">
+                        <div class="pluma-cuerpo"></div>
+                        <div class="pluma-punta"></div>
+                        <div class="pluma-sombra"></div>
+                    </div>
+                </div>
+
+                <!-- Emojis debajo de la barra -->
+                <div class="barra-etiquetas">
+                    <span>😫</span>
+                    <span>😀</span>
+                    <span>😆</span>
+                </div>
+            </div>
+
+            <!-- ================================================
+                 GRID DE REDES SOCIALES
+                 ================================================ -->
+            <div class="grid-redes" id="gridRedes">
+                {% for nombre, datos in fuentes.items() %}
+                <div class="columna-red">
+
+                    <!-- Nombre de la red -->
+                    <div class="red-header">
+                        <div class="red-icono">
+                            {% if nombre == 'facebook' %}📘
+                            {% elif nombre == 'linkedin' %}💼
+                            {% elif nombre == 'reddit' %}🤠
+                            {% elif nombre == 'x' %}𝕏
+                            {% else %}🌐{% endif %}
+                        </div>
+                        <div class="red-nombre">{{ nombre | capitalize }}</div>
+                    </div>
+
+                    <!-- Botón: Abrir modal de interpretación LLM -->
+                    <button class="btn-interpretacion" onclick="abrirModalInterpretacion('{{ nombre }}')">
+                        🤖 Ver Interpretación del Análisis
+                    </button>
+
+                    <!-- Slide: historial contenido + sentimiento del CSV -->
+                    <div class="slide-historial">
+                        <div class="slide-header">
+                            <span>📋 Historial</span>
+                            <span class="total-items">{{ datos.csv | length }} registros</span>
+                        </div>
+                        <div class="slide-body">
+                            {% for fila in datos.csv %}
+                            <div class="slide-item">
+                                <span class="contenido">{{ fila.contenido }}</span>
+                                <span class="badge-sent {{ fila.sentimiento | lower }}">{{ fila.sentimiento }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Botón de detalles -->
+                    <button class="btn-detalles" onclick="abrirModal('{{ nombre }}')">
+                        📑 Ver Detalles Técnicos
+                    </button>
+
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- ================================================
+                 LOGS + ACCIONES (originales del dashboard)
+                 ================================================ -->
+            <div class="card" style="margin-top: 2rem;">
+                <div class="card-header">
+                    <h2>📋 Historial de Logs</h2>
+                </div>
+                <div class="card-body">
+                    <div class="logs-container logs-dashboard">
+                        {% for log in logs %}
+                        <div class="log-entry 
+                            {% if '✓' in log.mensaje or 'exitosamente' in log.mensaje %}log-success
+                            {% elif 'Error' in log.mensaje %}log-error
+                            {% elif '[FASE' in log.mensaje %}log-fase
+                            {% else %}log-info{% endif %}">
+                            <span class="log-time">{{ log.timestamp }}</span>
+                            <span class="log-message">{{ log.mensaje }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="actions-container">
+                <button class="btn btn-secondary" onclick="window.location.href='/'">
+                    <span class="btn-icon">🏠</span> Volver al Inicio
+                </button>
+            </div>
+
+        </main>
+
+        <footer class="footer">
+            <p>Sistema de Procesamiento v1.0 | Dashboard de Resultados</p>
+        </footer>
+    </div>
+
+    <!-- ================================================
+         MODALES DE INTERPRETACIÓN LLM (uno por red)
+         ================================================ -->
+    {% for nombre, datos in fuentes.items() %}
+    <div class="modal-interpretacion-overlay" id="modal-interpretacion-{{ nombre }}">
+        <div class="modal-interpretacion-card">
+            <div class="modal-interpretacion-header">
+                <h3>
+                    <span>
+                        {% if nombre == 'facebook' %}📘
+                        {% elif nombre == 'linkedin' %}💼
+                        {% elif nombre == 'reddit' %}🤠
+                        {% elif nombre == 'x' %}𝕏
+                        {% else %}🌐{% endif %}
+                    </span>
+                    Interpretación del Análisis — {{ nombre | capitalize }}
+                </h3>
+                <button class="modal-interpretacion-cerrar" onclick="cerrarModalInterpretacion('{{ nombre }}')">&times;</button>
+            </div>
+            <div class="modal-interpretacion-body">
+                {% if datos.json and datos.json.interpretacion_llm %}
+                    <div class="texto-interpretacion">
+                        {{ datos.json.interpretacion_llm.interpretacion_completa }}
+                    </div>
+                {% else %}
+                    <p class="sin-datos">Sin datos disponibles.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- ================================================
+         MODALES DE DETALLES TÉCNICOS (uno por red)
+         ================================================ -->
+    {% for nombre, datos in fuentes.items() %}
+    <div class="modal-overlay" id="modal-{{ nombre }}">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>
+                    {% if nombre == 'facebook' %}📘
+                    {% elif nombre == 'linkedin' %}💼
+                    {% elif nombre == 'reddit' %}🤠
+                    {% elif nombre == 'x' %}𝕏
+                    {% else %}🌐{% endif %}
+                    Detalles Técnicos — {{ nombre | capitalize }}
+                </h3>
+                <button class="modal-cerrar" onclick="cerrarModal('{{ nombre }}')">&times;</button>
+            </div>
+            <div class="modal-body">
+
+                {% if datos.json %}
+
+                <!-- Distribución de sentimientos -->
+                <div class="modal-seccion">
+                    <div class="modal-seccion-title">Distribución de Sentimientos</div>
+                    <div class="modal-fila">
+                        <span class="label">✅ Positivos</span>
+                        <span class="valor">{{ datos.json.analisis_polaridad.distribucion_sentimientos.positivos }} ({{ datos.json.analisis_polaridad.distribucion_sentimientos.porcentaje_positivos }}%)</span>
+                    </div>
+                    <div class="modal-fila">
+                        <span class="label">❌ Negativos</span>
+                        <span class="valor">{{ datos.json.analisis_polaridad.distribucion_sentimientos.negativos }} ({{ datos.json.analisis_polaridad.distribucion_sentimientos.porcentaje_negativos }}%)</span>
+                    </div>
+                    <div class="modal-fila">
+                        <span class="label">➡️ Neutrales</span>
+                        <span class="valor">{{ datos.json.analisis_polaridad.distribucion_sentimientos.neutrales }} ({{ datos.json.analisis_polaridad.distribucion_sentimientos.porcentaje_neutrales }}%)</span>
+                    </div>
+                </div>
+
+                <!-- Cantidad por sentimiento -->
+                <div class="modal-seccion">
+                    <div class="modal-seccion-title">Cantidad por Sentimiento</div>
+                    <div class="modal-fila">
+                        <span class="label">Positivos</span>
+                        <span class="valor">{{ datos.json.metricas_adicionales.cantidad_por_sentimiento.positivos }}</span>
+                    </div>
+                    <div class="modal-fila">
+                        <span class="label">Negativos</span>
+                        <span class="valor">{{ datos.json.metricas_adicionales.cantidad_por_sentimiento.negativos }}</span>
+                    </div>
+                    <div class="modal-fila">
+                        <span class="label">Neutrales</span>
+                        <span class="valor">{{ datos.json.metricas_adicionales.cantidad_por_sentimiento.neutrales }}</span>
+                    </div>
+                </div>
+
+                <!-- Resumen carga emocional -->
+                <div class="modal-seccion">
+                    <div class="modal-seccion-title">Carga Emocional</div>
+                    <div class="modal-fila">
+                        <span class="label">Palabras positivas</span>
+                        <span class="valor">{{ datos.json.palabras_carga_emocional.resumen.total_palabras_positivas }}</span>
+                    </div>
+                    <div class="modal-fila">
+                        <span class="label">Palabras negativas</span>
+                        <span class="valor">{{ datos.json.palabras_carga_emocional.resumen.total_palabras_negativas }}</span>
+                    </div>
+                    <div class="modal-fila">
+                        <span class="label">Ratio neg/pos</span>
+                        <span class="valor">{{ datos.json.palabras_carga_emocional.resumen.ratio_negativo_positivo }}</span>
+                    </div>
+                    <div class="modal-fila">
+                        <span class="label">Score emocional</span>
+                        <span class="valor">{{ datos.json.palabras_carga_emocional.resumen.score_emocional_promedio }}</span>
+                    </div>
+                </div>
+
+                <!-- Modelo usado -->
+                <div class="modal-seccion">
+                    <div class="modal-seccion-title">Modelo Usado</div>
+                    <div class="modal-modelo">{{ datos.json.interpretacion_llm.modelo_usado }}</div>
+                </div>
+
+                {% else %}
+                <p class="sin-datos">Sin datos disponibles.</p>
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <script>
+        // ------------------------------------------------------------
+        // Posicionar la pluma según el sentimiento predominante
+        // ------------------------------------------------------------
+        (function() {
+            const predomina = "{{ sentimiento_global.predomina }}";
+            const pluma = document.getElementById("pluma");
+
+            // Mapeo: negativo → izquierda (15%), neutral → centro (50%), positivo → derecha (85%)
+            const posiciones = {
+                "negativo": 15,
+                "neutral":  50,
+                "positivo": 85
+            };
+
+            const pos = posiciones[predomina] || 50;
+            pluma.style.left = pos + "%";
+        })();
+
+        // ------------------------------------------------------------
+        // Modal de INTERPRETACIÓN LLM
+        // ------------------------------------------------------------
+        function abrirModalInterpretacion(nombre) {
+            document.getElementById("modal-interpretacion-" + nombre).classList.add("activo");
+        }
+
+        function cerrarModalInterpretacion(nombre) {
+            document.getElementById("modal-interpretacion-" + nombre).classList.remove("activo");
+        }
+
+        // Cerrar modal de interpretación al hacer clic fuera
+        document.querySelectorAll(".modal-interpretacion-overlay").forEach(overlay => {
+            overlay.addEventListener("click", function(e) {
+                if (e.target === this) {
+                    this.classList.remove("activo");
+                }
+            });
+        });
+
+        // Cerrar con tecla ESC
+        document.addEventListener("keydown", function(e) {
+            if (e.key === "Escape") {
+                document.querySelectorAll(".modal-interpretacion-overlay.activo").forEach(modal => {
+                    modal.classList.remove("activo");
+                });
+            }
+        });
+
+        // ------------------------------------------------------------
+        // Modal de DETALLES TÉCNICOS
+        // ------------------------------------------------------------
+        function abrirModal(nombre) {
+            document.getElementById("modal-" + nombre).classList.add("activo");
+        }
+
+        function cerrarModal(nombre) {
+            document.getElementById("modal-" + nombre).classList.remove("activo");
+        }
+
+        // Cerrar modal de detalles al hacer clic fuera
+        document.querySelectorAll(".modal-overlay").forEach(overlay => {
+            overlay.addEventListener("click", function(e) {
+                if (e.target === this) {
+                    this.classList.remove("activo");
+                }
+            });
+        });
+
+        // Cerrar con tecla ESC
+        document.addEventListener("keydown", function(e) {
+            if (e.key === "Escape") {
+                document.querySelectorAll(".modal-overlay.activo").forEach(modal => {
+                    modal.classList.remove("activo");
+                });
+            }
+        });
+    </script>
+</body>
+</html>
