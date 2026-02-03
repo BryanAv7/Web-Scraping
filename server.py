@@ -12,6 +12,7 @@ import queue
 import json
 import csv
 import os
+import sys
 
 app = Flask(__name__)
 
@@ -71,7 +72,7 @@ def ejecutar_fase(numero_fase, tema):
     try:
         proceso = subprocess.Popen(
             ## Cambio por MAIN
-            ["python", "main.py", str(numero_fase), tema],
+            [sys.executable, "main.py", str(numero_fase), tema],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,

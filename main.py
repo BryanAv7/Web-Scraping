@@ -14,6 +14,7 @@ import asyncio
 import subprocess
 import sys
 
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -266,22 +267,44 @@ def main():
     logger.info("Pipeline completo: SCRAPING + PREPROCESAMIENTO + ANALISIS LLM")
     logger.info("=" * 70)
 
-    # Preguntar configuración al usuario
-    posts_por_tema, temas_buscar = preguntar_config_usuario()
+    # ----------------------------------
+    # MODO SERVIDOR (Flask)
+    # python main.py <fase> <tema>
+    # ----------------------------------
+    if len(sys.argv) >= 3:
+        fase = int(sys.argv[1])
+        tema = sys.argv[2]
 
-    config = {
-        "posts_por_tema": posts_por_tema,
-        "temas_buscar": temas_buscar
-    }
+        logger.info(f"Ejecutado desde servidor")
+        logger.info(f"Fase solicitada: {fase}")
+        logger.info(f"Tema recibido: {tema}")
 
-    PRUEBA_RÁPIDA = False  
+        config = {
+            "posts_por_tema": POSTS_POR_TEMA_DEFAULT,
+            "temas_buscar": [tema]
+        }
 
-    if not PRUEBA_RÁPIDA:
-        orquestador = OrquestadorExtractores(
-            config=config,
-            max_workers=MAX_WORKERS
-        )
-        orquestador.ejecutar()
+    # ----------------------------------
+    # MODO CONSOLA (normal)
+    # ----------------------------------
+    else:
+        posts_por_tema, temas_buscar = preguntar_config_usuario()
+        config = {
+            "posts_por_tema": posts_por_tema,
+            "temas_buscar": temas_buscar
+        }
+        fase = 1  # ejecuta todo
+
+    # ----------------------------------
+    # ORQUESTADOR
+    # ----------------------------------
+    orquestador = OrquestadorExtractores(
+        config=config,
+        max_workers=MAX_WORKERS
+    )
+
+    orquestador.ejecutar()
+
 
 
 if __name__ == "__main__":
