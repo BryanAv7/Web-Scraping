@@ -71,7 +71,7 @@ def ejecutar_fase(numero_fase, tema):
     try:
         proceso = subprocess.Popen(
             ## Cambio por MAIN
-            ["python", "simulador.py", str(numero_fase), tema],
+            ["python", "main.py", str(numero_fase), tema],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,

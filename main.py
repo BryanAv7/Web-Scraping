@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # CONFIGURACIÓN PRINCIPAL
 # ==========================================
 
+PRUEBA_RÁPIDA = False  
 POSTS_POR_TEMA_DEFAULT = 20
 TEMAS_BUSCAR_DEFAULT = [
     "nicolas maduro capturado",
@@ -273,12 +274,14 @@ def main():
         "temas_buscar": temas_buscar
     }
 
-    orquestador = OrquestadorExtractores(
-        config=config,
-        max_workers=MAX_WORKERS
-    )
+    PRUEBA_RÁPIDA = False  
 
-    orquestador.ejecutar()
+    if not PRUEBA_RÁPIDA:
+        orquestador = OrquestadorExtractores(
+            config=config,
+            max_workers=MAX_WORKERS
+        )
+        orquestador.ejecutar()
 
 
 if __name__ == "__main__":
