@@ -78,7 +78,6 @@ def main(tema_analisis):
     errores = {}
 
     if not PRUEBA_RÁPIDA:
-        # Ejecutar scripts concurrentemente con hilos
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             future_to_nombre = {
                 executor.submit(ejecutar_analisis, s["nombre"], s["archivo"], s["csv_input"], tema_analisis): s["nombre"]
@@ -112,33 +111,19 @@ def main(tema_analisis):
                 logger.error(f"  {nombre}: {error}")
 
         logger.info("="*70)
+
     else:
-        logger.info("Modo PRUEBA RÁPIDA activado - Se omite la fase de análisis LLM")
+        logger.info("Modo PRUEBA_RÁPIDA activado — No se ejecutan análisis LLM")
         logger.info("="*70)
-
-    # Abrir el dashboard sin cerrar el servidor
-    dashboard_script = os.path.join('dashboard', 'run_dashboard.py')
-    print("\n🚀 Iniciando dashboard automáticamente (servidor persistente)...")
-
-    try:
-        # subprocess.Popen mantiene el proceso activo en segundo plano
-        subprocess.Popen([sys.executable, dashboard_script])
-        print("🌐 Dashboard en http://localhost:8000")
-        print("💡 El servidor seguirá corriendo aunque cierres el navegador")
-    except Exception as e:
-        print(f"\n⚠️ Error al abrir dashboard: {e}")
-        print("\n💡 Puedes abrir el dashboard manualmente ejecutando: python run_dashboard.py")
-
 
 # ==========================================
 # EJECUTAR MAIN
 # ==========================================
 
 if __name__ == "__main__":
-    import sys
-    # Recibe el tema desde Main1
     if len(sys.argv) > 1:
         tema = sys.argv[1]
     else:
         tema = "tema_por_defecto"
+
     main(tema)

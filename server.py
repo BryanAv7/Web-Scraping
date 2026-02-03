@@ -197,6 +197,48 @@ def calcular_sentimiento_global(fuentes):
     return conteo
 
 
+def generar_llm_global(sentimiento_global):
+    """
+    Envía el resumen numérico al modelo Gemini para obtener un análisis global interpretado.
+    """
+
+    # Clave de la API de Google Gemini
+    API_KEY = ""
+
+    prompt = f"""
+    Aquí tienes un resumen de sentimiento agregado de múltiples redes sociales:
+
+    - Positivos: {sentimiento_global['positivo']}
+    - Negativos: {sentimiento_global['negativo']}
+    - Neutrales: {sentimiento_global['neutral']}
+
+    Total analizado: {sentimiento_global['total']}
+    Sentimiento predominante: {sentimiento_global['predomina']}
+
+    Proporciona un análisis interpretado en un solo párrafo, con texto limpio y lenguaje sencillo, 
+    sin incluir listas ni datos numéricos dentro de la explicación. 
+    Describe de manera general qué significado tiene el resultado obtenido, 
+    qué tan fuerte es la polarización del público, 
+    qué nivel aproximado de confiabilidad podría tener la tendencia observada y 
+    qué conclusiones razonables se pueden tomar del panorama completo.
+    """
+
+    try:
+        # --- Cliente Gemini ---
+        import google.genai as genai
+        genai.configure(api_key=API_KEY)
+
+        model = genai.GenerativeModel("gemini-3-flash-preview")
+
+        response = model.generate_content(prompt)
+
+        # La respuesta viene en response.text
+        return response.text.strip()
+
+    except Exception as e:
+        return f"Error en análisis por LLM (Gemini): {str(e)}"
+
+
 def obtener_datos_dashboard():
     """
     Punto de entrada principal para el dashboard.
@@ -206,10 +248,12 @@ def obtener_datos_dashboard():
     """
     fuentes = leer_archivos_resultados()
     sentimiento_global = calcular_sentimiento_global(fuentes)
+    analisis_llm = generar_llm_global(sentimiento_global)
 
     return {
         "fuentes": fuentes,
         "sentimiento_global": sentimiento_global,
+        "analisis_llm": analisis_llm,
     }
 
 
