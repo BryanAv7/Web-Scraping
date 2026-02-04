@@ -1,7 +1,7 @@
 /**
  * ESTADÍSTICAS.JS
  * Sistema de visualización de análisis de sentimientos
- * Utiliza Chart.js para crear 10 gráficos académicos interactivos
+ * Utiliza Chart.js para crear gráficos académicos interactivos + WordCloud
  */
 
 // ============================================================
@@ -247,6 +247,96 @@ function crearGraficoHistograma(datos) {
             }
         }
     });
+}
+
+// ============================================================
+// GRÁFICO WORDCLOUD: NUBE DE PALABRAS
+// ============================================================
+
+function crearGraficoWordCloud(datos) {
+    const canvas = document.getElementById('wordcloudCanvas');
+    if (!canvas) {
+        console.warn('Canvas de wordcloud no encontrado');
+        return;
+    }
+    
+    const frecuenciaPalabras = datos.frecuencia_palabras || {};
+    
+    // Obtener palabras de cada categoría para colorear
+    const palabrasPositivas = new Set(
+        (frecuenciaPalabras.top_positivos || []).map(item => item.palabra)
+    );
+    const palabrasNegativas = new Set(
+        (frecuenciaPalabras.top_negativos || []).map(item => item.palabra)
+    );
+    const palabrasNeutrales = new Set(
+        (frecuenciaPalabras.top_neutrales || []).map(item => item.palabra)
+    );
+    
+    // Tomar top 20 palabras generales
+    const topGeneral = frecuenciaPalabras.top_general || [];
+    const top20 = extraerTopN(topGeneral, 20);
+    
+    if (top20.length === 0) {
+        console.warn('No hay datos para el wordcloud');
+        // Limpiar canvas
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        return;
+    }
+    
+    // Convertir a formato wordcloud2.js: [[palabra, peso], ...]
+    const listaPalabras = top20.map(item => [item.palabra, item.frecuencia]);
+    
+    // Función para asignar color según sentimiento
+    function obtenerColorPalabra(palabra) {
+        if (palabrasPositivas.has(palabra)) {
+            return COLORES.positivo; // Verde
+        } else if (palabrasNegativas.has(palabra)) {
+            return COLORES.negativo; // Rojo
+        } else if (palabrasNeutrales.has(palabra)) {
+            return COLORES.neutral; // Gris
+        }
+        return COLORES.primario; // Azul por defecto
+    }
+    
+    // Limpiar canvas antes de renderizar
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Configuración del wordcloud
+    const opciones = {
+        list: listaPalabras,
+        gridSize: Math.round(16 * canvas.width / 1024),
+        weightFactor: function(size) {
+            // Escala el tamaño de las palabras
+            return Math.pow(size, 0.7) * canvas.width / 40;
+        },
+        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+        color: function(word, weight) {
+            // Asignar color según sentimiento
+            return obtenerColorPalabra(word);
+        },
+        rotateRatio: 0.3, // 30% de palabras rotadas
+        rotationSteps: 2, // Solo horizontal o vertical
+        backgroundColor: 'transparent',
+        minSize: 12,
+        drawOutOfBound: false,
+        shrinkToFit: true,
+        hover: window.drawBox, // Efecto hover (opcional)
+        click: function(item) {
+            // Opcional: acción al hacer clic en una palabra
+            console.log('Palabra clickeada:', item);
+        }
+    };
+    
+    // Renderizar wordcloud
+    try {
+        WordCloud(canvas, opciones);
+        console.log('✅ WordCloud creado exitosamente');
+    } catch (error) {
+        console.error('❌ Error al crear WordCloud:', error);
+    }
 }
 
 // ============================================================
@@ -971,6 +1061,7 @@ function crearTodosLosGraficos(nombreRed) {
     try {
         crearGraficoDistribucion(datos);
         crearGraficoHistograma(datos);
+        crearGraficoWordCloud(datos);        // ← NUEVO: WordCloud añadido
         crearGraficoScatter(datos);
         crearGraficoPalabrasPositivas(datos);
         crearGraficoPalabrasNegativas(datos);
@@ -992,9 +1083,10 @@ function crearTodosLosGraficos(nombreRed) {
 
 function ocultarGraficosIndividuales() {
     const secciones = [
-        'chartDistribucion', 'chartHistograma', 'chartScatter',
-        'chartPalabrasPositivas', 'chartPalabrasNegativas', 'chartTFIDF',
-        'chartBigramas', 'chartTrigramas', 'chartEmociones', 'chartLongitud'
+        'chartDistribucion', 'chartHistograma', 'wordcloudCanvas',
+        'chartScatter', 'chartPalabrasPositivas', 'chartPalabrasNegativas', 
+        'chartTFIDF', 'chartBigramas', 'chartTrigramas', 'chartEmociones', 
+        'chartLongitud'
     ];
     
     secciones.forEach(id => {
