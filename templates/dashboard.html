@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Resultados</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
 </head>
+
 <body>
     <div class="container">
         <header class="header">
@@ -44,7 +46,8 @@
                 </div>
 
                 <!-- Barra visual (ahora clickeable) -->
-                <div class="barra-sentimiento" onclick="abrirModalAnalisisGlobal()" style="cursor: pointer;" title="Clic para ver análisis completo">
+                <div class="barra-sentimiento" onclick="abrirModalAnalisisGlobal()" style="cursor: pointer;"
+                    title="Clic para ver análisis completo">
                     <!-- Pluma: se posiciona por JS según predomina -->
                     <div class="pluma" id="pluma">
                         <div class="pluma-cuerpo"></div>
@@ -160,11 +163,11 @@
             </div>
             <div class="modal-interpretacion-body">
                 {% if analisis_llm %}
-                    <div class="texto-interpretacion">
-                        {{ analisis_llm }}
-                    </div>
+                <div class="texto-interpretacion">
+                    {{ analisis_llm }}
+                </div>
                 {% else %}
-                    <p class="sin-datos">No hay análisis disponible.</p>
+                <p class="sin-datos">No hay análisis disponible.</p>
                 {% endif %}
             </div>
         </div>
@@ -187,15 +190,16 @@
                     </span>
                     Interpretación del Análisis — {{ nombre | capitalize }}
                 </h3>
-                <button class="modal-interpretacion-cerrar" onclick="cerrarModalInterpretacion('{{ nombre }}')">&times;</button>
+                <button class="modal-interpretacion-cerrar"
+                    onclick="cerrarModalInterpretacion('{{ nombre }}')">&times;</button>
             </div>
             <div class="modal-interpretacion-body">
                 {% if datos.json and datos.json.interpretacion_llm %}
-                    <div class="texto-interpretacion">
-                        {{ datos.json.interpretacion_llm.interpretacion_completa }}
-                    </div>
+                <div class="texto-interpretacion">
+                    {{ datos.json.interpretacion_llm.interpretacion_completa }}
+                </div>
                 {% else %}
-                    <p class="sin-datos">Sin datos disponibles.</p>
+                <p class="sin-datos">Sin datos disponibles.</p>
                 {% endif %}
             </div>
         </div>
@@ -228,15 +232,18 @@
                     <div class="modal-seccion-title">Distribución de Sentimientos</div>
                     <div class="modal-fila">
                         <span class="label">✅ Positivos</span>
-                        <span class="valor">{{ datos.json.analisis_polaridad.distribucion_sentimientos.positivos }} ({{ datos.json.analisis_polaridad.distribucion_sentimientos.porcentaje_positivos }}%)</span>
+                        <span class="valor">{{ datos.json.analisis_polaridad.distribucion_sentimientos.positivos }} ({{
+                            datos.json.analisis_polaridad.distribucion_sentimientos.porcentaje_positivos }}%)</span>
                     </div>
                     <div class="modal-fila">
                         <span class="label">❌ Negativos</span>
-                        <span class="valor">{{ datos.json.analisis_polaridad.distribucion_sentimientos.negativos }} ({{ datos.json.analisis_polaridad.distribucion_sentimientos.porcentaje_negativos }}%)</span>
+                        <span class="valor">{{ datos.json.analisis_polaridad.distribucion_sentimientos.negativos }} ({{
+                            datos.json.analisis_polaridad.distribucion_sentimientos.porcentaje_negativos }}%)</span>
                     </div>
                     <div class="modal-fila">
                         <span class="label">➡️ Neutrales</span>
-                        <span class="valor">{{ datos.json.analisis_polaridad.distribucion_sentimientos.neutrales }} ({{ datos.json.analisis_polaridad.distribucion_sentimientos.porcentaje_neutrales }}%)</span>
+                        <span class="valor">{{ datos.json.analisis_polaridad.distribucion_sentimientos.neutrales }} ({{
+                            datos.json.analisis_polaridad.distribucion_sentimientos.porcentaje_neutrales }}%)</span>
                     </div>
                 </div>
 
@@ -245,15 +252,18 @@
                     <div class="modal-seccion-title">Cantidad por Sentimiento</div>
                     <div class="modal-fila">
                         <span class="label">Positivos</span>
-                        <span class="valor">{{ datos.json.metricas_adicionales.cantidad_por_sentimiento.positivos }}</span>
+                        <span class="valor">{{ datos.json.metricas_adicionales.cantidad_por_sentimiento.positivos
+                            }}</span>
                     </div>
                     <div class="modal-fila">
                         <span class="label">Negativos</span>
-                        <span class="valor">{{ datos.json.metricas_adicionales.cantidad_por_sentimiento.negativos }}</span>
+                        <span class="valor">{{ datos.json.metricas_adicionales.cantidad_por_sentimiento.negativos
+                            }}</span>
                     </div>
                     <div class="modal-fila">
                         <span class="label">Neutrales</span>
-                        <span class="valor">{{ datos.json.metricas_adicionales.cantidad_por_sentimiento.neutrales }}</span>
+                        <span class="valor">{{ datos.json.metricas_adicionales.cantidad_por_sentimiento.neutrales
+                            }}</span>
                     </div>
                 </div>
 
@@ -262,19 +272,23 @@
                     <div class="modal-seccion-title">Carga Emocional</div>
                     <div class="modal-fila">
                         <span class="label">Palabras positivas</span>
-                        <span class="valor">{{ datos.json.palabras_carga_emocional.resumen.total_palabras_positivas }}</span>
+                        <span class="valor">{{ datos.json.palabras_carga_emocional.resumen.total_palabras_positivas
+                            }}</span>
                     </div>
                     <div class="modal-fila">
                         <span class="label">Palabras negativas</span>
-                        <span class="valor">{{ datos.json.palabras_carga_emocional.resumen.total_palabras_negativas }}</span>
+                        <span class="valor">{{ datos.json.palabras_carga_emocional.resumen.total_palabras_negativas
+                            }}</span>
                     </div>
                     <div class="modal-fila">
                         <span class="label">Ratio neg/pos</span>
-                        <span class="valor">{{ datos.json.palabras_carga_emocional.resumen.ratio_negativo_positivo }}</span>
+                        <span class="valor">{{ datos.json.palabras_carga_emocional.resumen.ratio_negativo_positivo
+                            }}</span>
                     </div>
                     <div class="modal-fila">
                         <span class="label">Score emocional</span>
-                        <span class="valor">{{ datos.json.palabras_carga_emocional.resumen.score_emocional_promedio }}</span>
+                        <span class="valor">{{ datos.json.palabras_carga_emocional.resumen.score_emocional_promedio
+                            }}</span>
                     </div>
                 </div>
 
@@ -293,18 +307,23 @@
     </div>
     {% endfor %}
 
+    <!-- Botón flotante para Estadísticas -->
+    <a href="/estadisticas" class="btn-flotante-estadisticas" title="Ver Estadísticas Detalladas">
+        📊
+        <span class="btn-flotante-texto">Estadísticas</span>
+    </a>
     <script>
         // ------------------------------------------------------------
         // Posicionar la pluma según el sentimiento predominante
         // ------------------------------------------------------------
-        (function() {
+        (function () {
             const predomina = "{{ sentimiento_global.predomina }}";
             const pluma = document.getElementById("pluma");
 
             // Mapeo: negativo → izquierda (15%), neutral → centro (50%), positivo → derecha (85%)
             const posiciones = {
                 "negativo": 15,
-                "neutral":  50,
+                "neutral": 50,
                 "positivo": 85
             };
 
@@ -336,7 +355,7 @@
 
         // Cerrar modal de interpretación al hacer clic fuera
         document.querySelectorAll(".modal-interpretacion-overlay").forEach(overlay => {
-            overlay.addEventListener("click", function(e) {
+            overlay.addEventListener("click", function (e) {
                 if (e.target === this) {
                     this.classList.remove("activo");
                 }
@@ -344,7 +363,7 @@
         });
 
         // Cerrar con tecla ESC
-        document.addEventListener("keydown", function(e) {
+        document.addEventListener("keydown", function (e) {
             if (e.key === "Escape") {
                 document.querySelectorAll(".modal-interpretacion-overlay.activo").forEach(modal => {
                     modal.classList.remove("activo");
@@ -365,7 +384,7 @@
 
         // Cerrar modal de detalles al hacer clic fuera
         document.querySelectorAll(".modal-overlay").forEach(overlay => {
-            overlay.addEventListener("click", function(e) {
+            overlay.addEventListener("click", function (e) {
                 if (e.target === this) {
                     this.classList.remove("activo");
                 }
@@ -373,7 +392,7 @@
         });
 
         // Cerrar con tecla ESC
-        document.addEventListener("keydown", function(e) {
+        document.addEventListener("keydown", function (e) {
             if (e.key === "Escape") {
                 document.querySelectorAll(".modal-overlay.activo").forEach(modal => {
                     modal.classList.remove("activo");
@@ -382,4 +401,5 @@
         });
     </script>
 </body>
+
 </html>

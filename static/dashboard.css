@@ -975,3 +975,59 @@ body {
         gap: var(--spacing-sm);
     }
 }
+
+/* ====================================
+   BOTÓN FLOTANTE DE ESTADÍSTICAS
+   ==================================== */
+.btn-flotante-estadisticas {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    color: white;
+    text-decoration: none;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    transition: all 0.3s ease;
+    z-index: 1000;
+    cursor: pointer;
+}
+
+.btn-flotante-estadisticas:hover {
+    transform: scale(1.1) translateY(-3px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    width: 160px;
+    border-radius: 30px;
+}
+
+.btn-flotante-texto {
+    display: none;
+    margin-left: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.btn-flotante-estadisticas:hover .btn-flotante-texto {
+    display: inline-block;
+}
+
+/* Animación de pulso */
+@keyframes pulso {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.btn-flotante-estadisticas {
+    animation: pulso 2s infinite;
+}
+
+.btn-flotante-estadisticas:hover {
+    animation: none;
+}

@@ -1,0 +1,533 @@
+/* ============================================================
+   ESTADÍSTICAS.CSS - ESTILO ACADÉMICO FORMAL (TEMA OSCURO)
+   Sistema de Análisis de Sentimientos
+   ============================================================ */
+
+/* ============================================================
+   VARIABLES GLOBALES
+   ============================================================ */
+:root {
+    /* Colores principales */
+    --color-fondo: #0a0e27;
+    --color-fondo-secundario: #1a1f3a;
+    --color-fondo-terciario: #252b48;
+    --color-fondo-card: #2d3250;
+    
+    /* Colores de texto */
+    --color-texto-primario: #e8eaf6;
+    --color-texto-secundario: #b0b8d4;
+    --color-texto-terciario: #7b83a1;
+    
+    /* Colores de acento */
+    --color-primario: #5c6bc0;
+    --color-secundario: #7e57c2;
+    --color-acento: #26a69a;
+    
+    /* Colores de borde */
+    --color-borde: #3d4563;
+    --color-borde-hover: #5c6bc0;
+    
+    /* Sentimientos */
+    --color-positivo: #4caf50;
+    --color-negativo: #f44336;
+    --color-neutral: #9e9e9e;
+    
+    /* Sombras */
+    --sombra-card: 0 4px 12px rgba(0, 0, 0, 0.3);
+    --sombra-elevada: 0 8px 24px rgba(0, 0, 0, 0.4);
+    
+    /* Tipografía */
+    --fuente-principal: 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+    --fuente-monospace: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+/* ============================================================
+   RESET Y BASE
+   ============================================================ */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--fuente-principal);
+    background: linear-gradient(135deg, var(--color-fondo) 0%, var(--color-fondo-secundario) 100%);
+    color: var(--color-texto-primario);
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+/* ============================================================
+   CONTENEDOR PRINCIPAL
+   ============================================================ */
+.container {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+/* ============================================================
+   HEADER ACADÉMICO
+   ============================================================ */
+.academic-header {
+    background: linear-gradient(135deg, var(--color-fondo-card) 0%, var(--color-fondo-terciario) 100%);
+    border: 1px solid var(--color-borde);
+    border-radius: 12px;
+    padding: 2.5rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--sombra-card);
+}
+
+.header-content {
+    text-align: center;
+}
+
+.main-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--color-texto-primario);
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.5px;
+    text-transform: uppercase;
+    border-bottom: 3px solid var(--color-primario);
+    display: inline-block;
+    padding-bottom: 0.5rem;
+}
+
+.subtitle {
+    font-size: 1.2rem;
+    color: var(--color-texto-secundario);
+    margin-bottom: 1.5rem;
+    font-weight: 300;
+}
+
+.subtitle strong {
+    color: var(--color-acento);
+    font-weight: 500;
+}
+
+.metadata {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+.meta-item {
+    font-size: 0.95rem;
+    color: var(--color-texto-terciario);
+    padding: 0.5rem 1rem;
+    background: var(--color-fondo-secundario);
+    border-radius: 6px;
+    border: 1px solid var(--color-borde);
+}
+
+/* ============================================================
+   CONTROLES
+   ============================================================ */
+.controls-section {
+    background: var(--color-fondo-card);
+    border: 1px solid var(--color-borde);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--sombra-card);
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.control-label {
+    font-size: 1rem;
+    color: var(--color-texto-secundario);
+    font-weight: 500;
+    min-width: 200px;
+}
+
+.control-select {
+    flex: 1;
+    max-width: 400px;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    background: var(--color-fondo-terciario);
+    color: var(--color-texto-primario);
+    border: 1px solid var(--color-borde);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.control-select:hover {
+    border-color: var(--color-borde-hover);
+    background: var(--color-fondo-secundario);
+}
+
+.control-select:focus {
+    outline: none;
+    border-color: var(--color-primario);
+    box-shadow: 0 0 0 3px rgba(92, 107, 192, 0.2);
+}
+
+/* ============================================================
+   SECCIONES DE ANÁLISIS
+   ============================================================ */
+.analysis-section {
+    background: var(--color-fondo-card);
+    border: 1px solid var(--color-borde);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2.5rem;
+    box-shadow: var(--sombra-card);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.analysis-section:hover {
+    box-shadow: var(--sombra-elevada);
+}
+
+.section-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--color-borde);
+}
+
+.section-title {
+    font-size: 1.8rem;
+    font-weight: 600;
+    color: var(--color-texto-primario);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.section-title::before {
+    content: '';
+    width: 4px;
+    height: 1.8rem;
+    background: linear-gradient(180deg, var(--color-primario) 0%, var(--color-secundario) 100%);
+    border-radius: 2px;
+}
+
+.section-description {
+    font-size: 1rem;
+    color: var(--color-texto-terciario);
+    font-style: italic;
+    font-weight: 300;
+}
+
+/* ============================================================
+   GRID DE GRÁFICOS
+   ============================================================ */
+.chart-grid {
+    display: grid;
+    gap: 2rem;
+}
+
+.grid-1 {
+    grid-template-columns: 1fr;
+}
+
+.grid-2 {
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+}
+
+/* ============================================================
+   CONTENEDORES DE GRÁFICOS
+   ============================================================ */
+.chart-container {
+    background: var(--color-fondo-terciario);
+    border: 1px solid var(--color-borde);
+    border-radius: 10px;
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.chart-container:hover {
+    border-color: var(--color-borde-hover);
+    box-shadow: 0 4px 16px rgba(92, 107, 192, 0.15);
+}
+
+.chart-header {
+    margin-bottom: 1.5rem;
+}
+
+.chart-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--color-texto-primario);
+    margin-bottom: 0.3rem;
+}
+
+.chart-subtitle {
+    font-size: 0.9rem;
+    color: var(--color-texto-terciario);
+    font-style: italic;
+    font-weight: 300;
+}
+
+.chart-wrapper {
+    position: relative;
+    background: var(--color-fondo-secundario);
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--color-borde);
+    min-height: 300px;
+}
+
+.chart-wrapper canvas {
+    max-height: 400px;
+}
+
+/* ============================================================
+   FOOTER ACADÉMICO
+   ============================================================ */
+.academic-footer {
+    background: var(--color-fondo-card);
+    border: 1px solid var(--color-borde);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-top: 3rem;
+    box-shadow: var(--sombra-card);
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.footer-text {
+    font-size: 0.95rem;
+    color: var(--color-texto-terciario);
+    font-weight: 300;
+}
+
+.footer-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.btn-footer {
+    padding: 0.75rem 1.5rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--color-texto-primario);
+    background: var(--color-fondo-terciario);
+    border: 1px solid var(--color-borde);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-footer:hover {
+    background: var(--color-primario);
+    border-color: var(--color-primario);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(92, 107, 192, 0.3);
+}
+
+.btn-footer:active {
+    transform: translateY(0);
+}
+
+/* ============================================================
+   RESPONSIVIDAD
+   ============================================================ */
+@media (max-width: 1200px) {
+    .container {
+        padding: 1.5rem;
+    }
+    
+    .main-title {
+        font-size: 2rem;
+    }
+    
+    .grid-2 {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+    }
+    
+    .academic-header {
+        padding: 1.5rem;
+    }
+    
+    .main-title {
+        font-size: 1.5rem;
+    }
+    
+    .subtitle {
+        font-size: 1rem;
+    }
+    
+    .metadata {
+        gap: 0.5rem;
+    }
+    
+    .meta-item {
+        font-size: 0.85rem;
+        padding: 0.4rem 0.8rem;
+    }
+    
+    .control-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .control-label {
+        min-width: auto;
+    }
+    
+    .control-select {
+        max-width: 100%;
+    }
+    
+    .analysis-section {
+        padding: 1.5rem;
+    }
+    
+    .section-title {
+        font-size: 1.4rem;
+    }
+    
+    .chart-grid {
+        gap: 1rem;
+    }
+    
+    .footer-content {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .footer-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .btn-footer {
+        width: 100%;
+    }
+}
+
+/* ============================================================
+   ANIMACIONES
+   ============================================================ */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.analysis-section {
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* ============================================================
+   UTILIDADES
+   ============================================================ */
+.text-center {
+    text-align: center;
+}
+
+.mb-2 {
+    margin-bottom: 2rem;
+}
+
+.mt-2 {
+    margin-top: 2rem;
+}
+
+/* ============================================================
+   ESTADOS DE CARGA
+   ============================================================ */
+.loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 300px;
+    color: var(--color-texto-terciario);
+    font-size: 1.1rem;
+}
+
+.loading::after {
+    content: '...';
+    animation: dots 1.5s infinite;
+}
+
+@keyframes dots {
+    0%, 20% { content: '.'; }
+    40% { content: '..'; }
+    60%, 100% { content: '...'; }
+}
+
+/* ============================================================
+   SCROLLBAR PERSONALIZADA
+   ============================================================ */
+::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--color-fondo-secundario);
+    border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--color-borde);
+    border-radius: 6px;
+    border: 2px solid var(--color-fondo-secundario);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primario);
+}
+
+/* ============================================================
+   ELEMENTOS INTERACTIVOS
+   ============================================================ */
+button, select, input {
+    font-family: var(--fuente-principal);
+}
+
+::selection {
+    background: var(--color-primario);
+    color: var(--color-texto-primario);
+}
+
+/* ============================================================
+   PRINT STYLES (para informes)
+   ============================================================ */
+@media print {
+    body {
+        background: white;
+        color: black;
+    }
+    
+    .controls-section,
+    .footer-actions {
+        display: none;
+    }
+    
+    .analysis-section {
+        page-break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #ccc;
+    }
+}

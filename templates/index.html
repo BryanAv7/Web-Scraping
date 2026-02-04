@@ -1,24 +1,19 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Procesamiento</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
 </head>
+
 <body>
     <div class="container-minimal">
         <form id="searchForm" class="search-form">
             <div class="search-box">
-                <input 
-                    type="text" 
-                    id="tema" 
-                    name="tema" 
-                    class="search-input" 
-                    placeholder="Ingrese el tema a procesar"
-                    required
-                    autofocus
-                >
+                <input type="text" id="tema" name="tema" class="search-input" placeholder="Ingrese el tema a procesar"
+                    required autofocus>
                 <button type="submit" class="search-button">Buscar</button>
             </div>
             <div class="status-bar">
@@ -33,7 +28,7 @@
                 </div>
                 <div class="progress-text" id="progressText">0%</div>
             </div>
-            
+
             <div class="status-bar">
                 <div class="status-message" id="statusMessage">Iniciando...</div>
             </div>
@@ -52,6 +47,11 @@
             </div>
         </div>
     </div>
+    <!-- Botón flotante para Estadísticas -->
+    <a href="/estadisticas" class="btn-flotante-estadisticas" title="Ver Estadísticas Detalladas">
+        📊
+        <span class="btn-flotante-texto">Estadísticas</span>
+    </a>
 
     <script>
         const form = document.getElementById('searchForm');
@@ -59,10 +59,10 @@
         let pollingInterval = null;
         let logsInterval = null;
 
-        form.addEventListener('submit', function(e) {
+        form.addEventListener('submit', function (e) {
             e.preventDefault();
             const tema = document.getElementById('tema').value;
-            
+
             // Iniciar proceso
             fetch('/iniciar', {
                 method: 'POST',
@@ -73,11 +73,11 @@
             }).then(() => {
                 // Mostrar sección de progreso
                 progressSection.style.display = 'block';
-                
+
                 // Iniciar polling
                 pollingInterval = setInterval(actualizarEstado, 2000);
                 logsInterval = setInterval(actualizarLogs, 1000);
-                
+
                 // Primera actualización inmediata
                 actualizarEstado();
                 actualizarLogs();
@@ -91,7 +91,7 @@
                     const progreso = Math.round(data.progreso_porcentaje);
                     document.getElementById('progressBar').style.width = progreso + '%';
                     document.getElementById('progressText').textContent = progreso + '%';
-                    
+
                     if (data.fase_nombre) {
                         document.getElementById('statusMessage').textContent = data.fase_nombre;
                     }
@@ -116,11 +116,11 @@
                 .then(response => response.json())
                 .then(data => {
                     const container = document.getElementById('logsContainer');
-                    
+
                     data.logs.forEach(log => {
                         const logEntry = document.createElement('div');
                         logEntry.className = 'log-entry log-info';
-                        
+
                         if (log.mensaje.includes('✓') || log.mensaje.includes('exitosamente')) {
                             logEntry.classList.add('log-success');
                         } else if (log.mensaje.includes('Error') || log.mensaje.includes('❌')) {
@@ -128,12 +128,12 @@
                         } else if (log.mensaje.includes('[FASE')) {
                             logEntry.classList.add('log-fase');
                         }
-                        
+
                         logEntry.innerHTML = `
                             <span class="log-time">${log.timestamp}</span>
                             <span class="log-message">${log.mensaje}</span>
                         `;
-                        
+
                         container.appendChild(logEntry);
                     });
 
@@ -142,4 +142,5 @@
         }
     </script>
 </body>
+
 </html>

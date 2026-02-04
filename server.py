@@ -207,7 +207,7 @@ def calcular_sentimiento_global(fuentes):
 
 
 def generar_llm_global(sentimiento_global):
-    API_KEY = ""
+    API_KEY = "AIzaSyArbPVtNSc5e_CMDEUx9RsTv2cM4cRQibw"
 
     prompt = f"""
     Resumen de sentimiento de múltiples redes sociales:
@@ -242,6 +242,82 @@ def obtener_datos_dashboard():
         "analisis_llm": analisis_llm,
     }
 
+# ============================================================
+# LÓGICA DE ESTADÍSTICAS (NEW)
+# ============================================================
+
+def obtener_datos_estadisticas():
+    """
+    Recopila todos los datos necesarios para los gráficos de estadísticas
+    """
+    fuentes = leer_archivos_resultados()
+    
+    # Estructura de datos para estadísticas
+    datos_estadisticas = {
+        "redes_disponibles": list(fuentes.keys()),
+        "datos_por_red": {}
+    }
+    
+    for nombre_red, datos in fuentes.items():
+        # Datos del JSON
+        json_data = datos.get("json", {})
+        
+        # Datos del CSV
+        csv_data = datos.get("csv", [])
+        
+        # Extraer datos relevantes para gráficos
+        datos_estadisticas["datos_por_red"][nombre_red] = {
+            # Para gráfico de distribución de sentimientos
+            "distribucion_sentimientos": json_data.get("analisis_polaridad", {}).get("distribucion_sentimientos", {}),
+            
+            # Para histograma de polaridad y scatter plot
+            "datos_csv": {
+                "polaridad": [float(fila.get("polaridad", 0)) for fila in csv_data if fila.get("polaridad")],
+                "confianza": [float(fila.get("confianza", 0)) for fila in csv_data if fila.get("confianza")],
+                "sentimiento": [fila.get("sentimiento", "NEUTRAL") for fila in csv_data],
+                "longitud": [int(fila.get("longitud", 0)) for fila in csv_data if fila.get("longitud")]
+            },
+            
+            # Para top palabras por sentimiento
+            "frecuencia_palabras": json_data.get("frecuencia_palabras", {}),
+            
+            # Para palabras distintivas TF-IDF
+            "analisis_tfidf": json_data.get("analisis_tfidf", {}),
+            
+            # Para bigramas y trigramas
+            "analisis_ngramas": json_data.get("analisis_ngramas", {}),
+            
+            # Para carga emocional
+            "distribucion_emociones": json_data.get("palabras_carga_emocional", {}).get("distribucion_emociones", {}),
+            
+            # Para análisis de negaciones
+            "analisis_negaciones": json_data.get("analisis_negaciones", {}),
+            
+            # Para longitud de comentarios
+            "metricas_adicionales": json_data.get("metricas_adicionales", {})
+        }
+    
+    return datos_estadisticas
+
+
+def calcular_estadisticas_globales(datos_estadisticas):
+    """
+    Calcula estadísticas comparativas entre todas las redes sociales
+    """
+    comparativa = {
+        "por_red": {}
+    }
+    
+    for nombre_red, datos in datos_estadisticas["datos_por_red"].items():
+        dist = datos.get("distribucion_sentimientos", {})
+        comparativa["por_red"][nombre_red] = {
+            "positivos": dist.get("positivos", 0),
+            "negativos": dist.get("negativos", 0),
+            "neutrales": dist.get("neutrales", 0),
+            "total": dist.get("positivos", 0) + dist.get("negativos", 0) + dist.get("neutrales", 0)
+        }
+    
+    return comparativa
 
 # ============================================================
 # ENDPOINTS
@@ -318,6 +394,46 @@ def api_logs():
 def api_resultados():
     return jsonify(obtener_datos_dashboard())
 
+
+
+# ============================================================
+# ENDPOINT DE ESTADÍSTICAS
+# ============================================================
+
+@app.route("/estadisticas")
+def estadisticas():
+    """
+    Página de estadísticas con gráficos
+    """
+
+    #if not estado_proceso["completado"]:
+    #    return redirect(url_for("index"))
+    
+    # Obtener todos los datos necesarios
+    datos_estadisticas = obtener_datos_estadisticas()
+    estadisticas_globales = calcular_estadisticas_globales(datos_estadisticas)
+    
+    return render_template(
+        "estadisticas.html",
+        tema=estado_proceso["tema"],
+        datos_estadisticas=datos_estadisticas,
+        estadisticas_globales=estadisticas_globales
+    )
+
+
+@app.route("/api/estadisticas")
+def api_estadisticas():
+    """
+    API endpoint para obtener datos de estadísticas en formato JSON
+    (útil si quieres hacer gráficos dinámicos con JavaScript)
+    """
+    datos_estadisticas = obtener_datos_estadisticas()
+    estadisticas_globales = calcular_estadisticas_globales(datos_estadisticas)
+    
+    return jsonify({
+        "datos_estadisticas": datos_estadisticas,
+        "estadisticas_globales": estadisticas_globales
+    })
 
 # ============================================================
 # EJECUTAR SERVIDOR

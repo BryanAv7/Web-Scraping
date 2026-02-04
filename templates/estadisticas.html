@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estadísticas - Análisis de Sentimientos</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='estadisticas.css') }}">
+    <!-- Chart.js para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <!-- WordCloud2.js para nube de palabras -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.2.2/wordcloud2.min.js"></script>
+    
+    <style>
+        /* Estilos para tooltips de badges */
+        .meta-item {
+            position: relative;
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+
+        .meta-item:hover {
+            transform: translateY(-2px);
+        }
+
+        .meta-tooltip {
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            background: rgba(0, 0, 0, 0.95);
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .meta-tooltip::before {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-bottom-color: rgba(0, 0, 0, 0.95);
+        }
+
+        .meta-item:hover .meta-tooltip {
+            opacity: 1;
+            transform: translateX(-50%) translateY(5px);
+        }
+
+        .tooltip-label {
+            color: #888;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .tooltip-value {
+            color: #4CAF50;
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        /* Estilos para el contenedor del wordcloud */
+        #wordcloudCanvas {
+            width: 100%;
+            height: 400px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <!-- Header Académico -->
+        <header class="academic-header">
+            <div class="header-content">
+                <h1 class="main-title">Análisis Estadístico de Sentimientos</h1>
+                <p class="subtitle">Tema de Investigación: <strong>{{ tema }}</strong></p>
+                <div class="metadata">
+                    <span class="meta-item">
+                        📊 Análisis Cuantitativo
+                        <div class="meta-tooltip">
+                            <span class="tooltip-label">Total Comentarios</span>
+                            <span class="tooltip-value" id="tooltip-total">0</span>
+                        </div>
+                    </span>
+                    <span class="meta-item">
+                        🔬 Procesamiento de Lenguaje Natural
+                        <div class="meta-tooltip">
+                            <span class="tooltip-label">Confianza Promedio</span>
+                            <span class="tooltip-value" id="tooltip-confianza">0%</span>
+                        </div>
+                    </span>
+                    <span class="meta-item">
+                        📈 Visualización de Datos
+                        <div class="meta-tooltip">
+                            <span class="tooltip-label">Polaridad Global</span>
+                            <span class="tooltip-value" id="tooltip-polaridad">0.00</span>
+                        </div>
+                    </span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Selector de Red Social -->
+        <div class="controls-section">
+            <div class="control-group">
+                <label for="redSelector" class="control-label">Seleccionar Fuente de Datos:</label>
+                <select id="redSelector" class="control-select">
+                    <option value="todas">Comparativa - Todas las Redes</option>
+                    {% for red in datos_estadisticas.redes_disponibles %}
+                    <option value="{{ red }}">{{ red | capitalize }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+
+            <!-- ================================================
+                 SECCIÓN 1: DISTRIBUCIÓN GENERAL
+                 ================================================ -->
+            <section class="analysis-section">
+                <div class="section-header">
+                    <h2 class="section-title">1. Distribución General de Sentimientos</h2>
+                    <p class="section-description">Análisis cuantitativo de la polaridad detectada en el corpus textual
+                    </p>
+                </div>
+
+                <div class="chart-grid grid-2">
+                    <!-- Gráfico 1: Distribución de Sentimientos -->
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h3 class="chart-title">1.1 Distribución por Categoría</h3>
+                            <p class="chart-subtitle">Clasificación tri-polar del contenido</p>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="chartDistribucion"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Gráfico 2: Histograma de Polaridad -->
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h3 class="chart-title">1.2 Histograma de Polaridad</h3>
+                            <p class="chart-subtitle">Distribución de valores en escala [-1, +1]</p>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="chartHistograma"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================================================
+                 SECCIÓN 2: NUBE DE PALABRAS (NUEVO)
+                 ================================================ -->
+            <section class="analysis-section">
+                <div class="section-header">
+                    <h2 class="section-title">2. Análisis Visual del Léxico</h2>
+                    <p class="section-description">Nube de palabras más frecuentes con énfasis por tamaño</p>
+                </div>
+
+                <div class="chart-grid grid-1">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h3 class="chart-title">2.1 Nube de Palabras del Corpus</h3>
+                            <p class="chart-subtitle">Tamaño proporcional a la frecuencia de aparición</p>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="wordcloudCanvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================================================
+                 SECCIÓN 3: ANÁLISIS LÉXICO
+                 ================================================ -->
+            <section class="analysis-section">
+                <div class="section-header">
+                    <h2 class="section-title">3. Análisis Léxico-Semántico</h2>
+                    <p class="section-description">Frecuencia y distintividad de unidades léxicas</p>
+                </div>
+
+                <div class="chart-grid grid-2">
+                    <!-- Gráfico 4: Top Palabras Positivas -->
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h3 class="chart-title">3.1 Vocabulario Positivo</h3>
+                            <p class="chart-subtitle">Términos más frecuentes en contenido positivo</p>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="chartPalabrasPositivas"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Gráfico 5: Top Palabras Negativas -->
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h3 class="chart-title">3.2 Vocabulario Negativo</h3>
+                            <p class="chart-subtitle">Términos más frecuentes en contenido negativo</p>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="chartPalabrasNegativas"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gráfico 6: TF-IDF -->
+                <div class="chart-grid grid-1" style="margin-top: 2rem;">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h3 class="chart-title">3.3 Análisis TF-IDF - Palabras Distintivas</h3>
+                            <p class="chart-subtitle">Términos característicos por sentimiento (Term Frequency-Inverse
+                                Document Frequency)</p>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="chartTFIDF"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================================================
+                 SECCIÓN 4: CONTEXTO LINGÜÍSTICO
+                 ================================================ -->
+            <section class="analysis-section">
+                <div class="section-header">
+                    <h2 class="section-title">4. Análisis Contextual N-Gramas</h2>
+                    <p class="section-description">Patrones colocacionales y secuencias multipalabra</p>
+                </div>
+
+                <div class="chart-grid grid-2">
+                    <!-- Gráfico 7: Bigramas -->
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h3 class="chart-title">4.1 Bigramas Frecuentes (Negativos)</h3>
+                            <p class="chart-subtitle">Secuencias de 2 palabras en contexto negativo</p>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="chartBigramas"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Gráfico 8: Trigramas -->
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h3 class="chart-title">4.2 Trigramas Frecuentes (Negativos)</h3>
+                            <p class="chart-subtitle">Secuencias de 3 palabras en contexto negativo</p>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="chartTrigramas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================================================
+                 SECCIÓN 5: ANÁLISIS EMOCIONAL
+                 ================================================ -->
+            <section class="analysis-section">
+                <div class="section-header">
+                    <h2 class="section-title">5. Análisis Emocional Multidimensional</h2>
+                    <p class="section-description">Clasificación según modelo de emociones básicas</p>
+                </div>
+
+                <div class="chart-grid grid-2">
+                    <!-- Gráfico 9: Radar de Emociones -->
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h3 class="chart-title">5.1 Perfil Emocional (NRC Lexicon)</h3>
+                            <p class="chart-subtitle">Distribución de 8 emociones básicas</p>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="chartEmociones"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Gráfico 10: Longitud de Comentarios -->
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h3 class="chart-title">5.2 Extensión Textual por Sentimiento</h3>
+                            <p class="chart-subtitle">Promedio de palabras por categoría</p>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="chartLongitud"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================================================
+                 SECCIÓN 6: COMPARATIVA ENTRE REDES
+                 ================================================ -->
+            <section class="analysis-section" id="seccionComparativa">
+                <div class="section-header">
+                    <h2 class="section-title">6. Análisis Comparativo Inter-Plataformas</h2>
+                    <p class="section-description">Diferencias en polaridad entre redes sociales</p>
+                </div>
+
+                <div class="chart-grid grid-1">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h3 class="chart-title">6.1 Comparativa de Distribución de Sentimientos</h3>
+                            <p class="chart-subtitle">Análisis cross-platform del mismo tema</p>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="chartComparativa"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Footer Académico -->
+        <footer class="academic-footer">
+            <div class="footer-content">
+                <p class="footer-text">Sistema de Análisis de Sentimientos v1.0 | Metodología: NLP Multi-Técnica</p>
+                <div class="footer-actions">
+                    <button class="btn-footer" onclick="window.location.href='/dashboard'">
+                        ← Volver al Dashboard
+                    </button>
+                    <button class="btn-footer" onclick="window.location.href='/'">
+                        🏠 Inicio
+                    </button>
+                </div>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- ================================================
+         SCRIPTS
+         ================================================ -->
+    
+    <!-- 1. Chart.js PRIMERO (librería externa) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+
+    <!-- 2. Datos desde Flask (variables globales) -->
+    <script>
+        // Datos pasados desde Flask para que estadisticas.js los use
+        const datosEstadisticas = {{ datos_estadisticas | tojson | safe }};
+        const estadisticasGlobales = {{ estadisticas_globales | tojson | safe }};
+        
+        console.log("Datos cargados:", datosEstadisticas);
+        console.log("Estadísticas globales:", estadisticasGlobales);
+    </script>
+
+    <!-- 3. Script para actualizar tooltips dinámicos -->
+    <script>
+        // Actualizar métricas en los tooltips del header
+        function actualizarTooltipsHeader(nombreRed) {
+            let totalComentarios = 0;
+            let confianzaPromedio = 0;
+            let polaridadGlobal = 0;
+
+            if (nombreRed === 'todas') {
+                // Sumar de todas las redes
+                for (const red in datosEstadisticas.datos_por_red) {
+                    const datos = datosEstadisticas.datos_por_red[red];
+                    const dist = datos.distribucion_sentimientos || {};
+                    totalComentarios += (dist.positivos || 0) + (dist.negativos || 0) + (dist.neutrales || 0);
+                    
+                    // Promedios (simplificado, deberías ponderarlo por cantidad)
+                    if (datos.datos_csv && datos.datos_csv.confianza) {
+                        const sum = datos.datos_csv.confianza.reduce((a, b) => a + b, 0);
+                        confianzaPromedio += sum / datos.datos_csv.confianza.length;
+                    }
+                    if (datos.datos_csv && datos.datos_csv.polaridad) {
+                        const sum = datos.datos_csv.polaridad.reduce((a, b) => a + b, 0);
+                        polaridadGlobal += sum / datos.datos_csv.polaridad.length;
+                    }
+                }
+                const numRedes = Object.keys(datosEstadisticas.datos_por_red).length;
+                confianzaPromedio /= numRedes;
+                polaridadGlobal /= numRedes;
+            } else {
+                // Datos de una red específica
+                const datos = datosEstadisticas.datos_por_red[nombreRed];
+                const dist = datos.distribucion_sentimientos || {};
+                totalComentarios = (dist.positivos || 0) + (dist.negativos || 0) + (dist.neutrales || 0);
+                
+                if (datos.datos_csv && datos.datos_csv.confianza) {
+                    const sum = datos.datos_csv.confianza.reduce((a, b) => a + b, 0);
+                    confianzaPromedio = sum / datos.datos_csv.confianza.length;
+                }
+                if (datos.datos_csv && datos.datos_csv.polaridad) {
+                    const sum = datos.datos_csv.polaridad.reduce((a, b) => a + b, 0);
+                    polaridadGlobal = sum / datos.datos_csv.polaridad.length;
+                }
+            }
+
+            // Actualizar DOM
+            document.getElementById('tooltip-total').textContent = totalComentarios;
+            document.getElementById('tooltip-confianza').textContent = (confianzaPromedio * 100).toFixed(1) + '%';
+            document.getElementById('tooltip-polaridad').textContent = polaridadGlobal.toFixed(3);
+            
+            // Cambiar color según polaridad
+            const tooltipPolaridad = document.getElementById('tooltip-polaridad');
+            if (polaridadGlobal > 0.1) {
+                tooltipPolaridad.style.color = '#4CAF50'; // Verde
+            } else if (polaridadGlobal < -0.1) {
+                tooltipPolaridad.style.color = '#F44336'; // Rojo
+            } else {
+                tooltipPolaridad.style.color = '#9E9E9E'; // Gris
+            }
+        }
+
+        // Llamar al cargar y al cambiar de red
+        window.addEventListener('DOMContentLoaded', function() {
+            const primeraRed = datosEstadisticas.redes_disponibles[0];
+            if (primeraRed) {
+                actualizarTooltipsHeader(primeraRed);
+            }
+        });
+    </script>
+
+    <!-- 4. Tu archivo JS con toda la lógica -->
+    <script src="{{ url_for('static', filename='estadisticas.js') }}"></script>
+
+</body>
+
+</html>
