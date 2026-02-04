@@ -115,17 +115,22 @@ def _ejecutar_preprocesamiento():
         resultado = subprocess.run(
             [sys.executable, SCRIPT_PREPROCESAMIENTO],
             capture_output=True,
-            text=True
+            text=True,
+            timeout=300  # 5 minutos timeout
         )
 
         if resultado.returncode != 0:
             raise RuntimeError(resultado.stderr)
 
         logger.info("Preprocesamiento completado exitosamente")
-        logger.info(resultado.stdout)
+        if resultado.stdout:
+            logger.info(resultado.stdout)
 
         return {"nombre": "Preprocesamiento", "estado": "exitoso"}
 
+    except subprocess.TimeoutExpired:
+        logger.error("Preprocesamiento: Timeout excedido")
+        return {"nombre": "Preprocesamiento", "estado": "error", "error": "Timeout"}
     except Exception as e:
         logger.error(f"Preprocesamiento: Error - {str(e)}")
         return {"nombre": "Preprocesamiento", "estado": "error", "error": str(e)}
@@ -143,20 +148,24 @@ class OrquestadorExtractores:
         self.errores = {}
         self.inicio = None
         self.fin = None
-        self.tema_a_analizar = None  # Guardaremos el tema principal aquí
+        self.tema_a_analizar = None
 
     def ejecutar(self):
         logger.info("=" * 70)
-        logger.info("Orquestador - Modo Procesos")
+        logger.info("🚀 ORQUESTADOR - MODO PROCESOS")
         logger.info("=" * 70)
-        logger.info(f"Temas a buscar: {len(self.config.get('temas_buscar', []))}")
+        logger.info(f"Temas a buscar: {self.config.get('temas_buscar')}")
+        logger.info(f"Posts por tema: {self.config.get('posts_por_tema')}")
+        logger.info(f"Max workers: {self.max_workers}")
         logger.info("=" * 70)
 
         self.inicio = datetime.now()
 
         # ==========================
-        # FASE 1 - SCRAPING
+        # FASE 1 - SCRAPING PARALELO
         # ==========================
+        logger.info("📊 FASE 1: SCRAPING")
+        
         with ProcessPoolExecutor(max_workers=self.max_workers) as executor:
             futures = {}
 
@@ -176,40 +185,41 @@ class OrquestadorExtractores:
                     resultado = future.result(timeout=TIMEOUT)
                     if resultado["estado"] == "exitoso":
                         self.resultados[nombre] = resultado
+                        logger.info(f"✓ {nombre} completado")
                     else:
                         self.errores[nombre] = resultado.get("error")
+                        logger.error(f"✗ {nombre} falló: {resultado.get('error')}")
                 except TimeoutError:
                     self.errores[nombre] = f"Timeout después de {TIMEOUT} segundos"
+                    logger.error(f"✗ {nombre} timeout")
                 except Exception as e:
                     self.errores[nombre] = str(e)
+                    logger.error(f"✗ {nombre} error: {str(e)}")
 
         logger.info("=" * 70)
-        logger.info("FASE 1 COMPLETADA")
-        logger.info("Iniciando FASE 2")
+        logger.info(f"FASE 1 COMPLETADA: {len(self.resultados)} exitosos, {len(self.errores)} fallidos")
         logger.info("=" * 70)
 
         # ==========================
         # FASE 2 - PREPROCESAMIENTO
         # ==========================
-        with ProcessPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(_ejecutar_preprocesamiento)
-            try:
-                resultado = future.result(timeout=TIMEOUT)
-                if resultado["estado"] == "exitoso":
-                    self.resultados["Preprocesamiento"] = resultado
-                else:
-                    self.errores["Preprocesamiento"] = resultado.get("error")
-            except TimeoutError:
-                self.errores["Preprocesamiento"] = f"Timeout después de {TIMEOUT} segundos"
-            except Exception as e:
-                self.errores["Preprocesamiento"] = str(e)
+        logger.info("🔧 FASE 2: PREPROCESAMIENTO")
+        
+        resultado_prep = _ejecutar_preprocesamiento()
+        
+        if resultado_prep["estado"] == "exitoso":
+            self.resultados["Preprocesamiento"] = resultado_prep
+            logger.info("✓ Preprocesamiento completado")
+        else:
+            self.errores["Preprocesamiento"] = resultado_prep.get("error")
+            logger.error(f"✗ Preprocesamiento falló: {resultado_prep.get('error')}")
 
         # ==========================
-        # Guardamos el tema principal para Main2
+        # Tema para análisis
         # ==========================
         if self.config.get("temas_buscar"):
             self.tema_a_analizar = self.config.get("temas_buscar")[0]
-            logger.info(f"Tema principal a analizar en Main2: {self.tema_a_analizar}")
+            logger.info(f"📝 Tema principal: {self.tema_a_analizar}")
 
         self.fin = datetime.now()
         self._imprimir_resumen()
@@ -217,25 +227,31 @@ class OrquestadorExtractores:
         # ==========================
         # FASE 3 - ANÁLISIS LLM (MAIN2)
         # ==========================
-        if not self.errores and self.tema_a_analizar:
+        if self.tema_a_analizar and "Preprocesamiento" in self.resultados:
+            logger.info("🤖 FASE 3: ANÁLISIS LLM")
             self._ejecutar_main2()
         else:
-            logger.warning("Se detectaron errores en fases anteriores o no hay tema definido. Se omite MAIN2.")
+            logger.warning("⚠️  Se omite FASE 3 por errores en fases anteriores")
 
     def _imprimir_resumen(self):
         tiempo_total = (self.fin - self.inicio).total_seconds()
 
         logger.info("=" * 70)
-        logger.info("RESUMEN FINAL DEL PIPELINE")
+        logger.info("📊 RESUMEN FINAL DEL PIPELINE")
         logger.info("=" * 70)
-        logger.info(f"Procesos exitosos: {len(self.resultados)}")
-        logger.info(f"Procesos con error: {len(self.errores)}")
-        logger.info(f"Tiempo total: {tiempo_total:.2f} segundos")
+        logger.info(f"✓ Procesos exitosos: {len(self.resultados)}")
+        logger.info(f"✗ Procesos con error: {len(self.errores)}")
+        logger.info(f"⏱️  Tiempo total: {tiempo_total:.2f} segundos ({tiempo_total/60:.2f} minutos)")
+
+        if self.resultados:
+            logger.info("\n✓ Exitosos:")
+            for nombre in self.resultados:
+                logger.info(f"  - {nombre}")
 
         if self.errores:
-            logger.info("Errores:") 
+            logger.info("\n✗ Errores:")
             for nombre, error in self.errores.items():
-                logger.error(f"  {nombre}: {error}")
+                logger.error(f"  - {nombre}: {error}")
 
         logger.info("=" * 70)
 
@@ -248,15 +264,12 @@ class OrquestadorExtractores:
             main2_module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(main2_module)
 
-            logger.info("="*70)
-            logger.info("Iniciando FASE 3: ANÁLISIS LLM (MAIN2)")
-            logger.info("="*70)
-
-            # Pasamos el tema principal a Main2
+            logger.info("Ejecutando análisis LLM...")
             main2_module.main(self.tema_a_analizar)
+            logger.info("✓ Análisis LLM completado")
 
         except Exception as e:
-            logger.error(f"No se pudo ejecutar MAIN2: {str(e)}")
+            logger.error(f"✗ Error en MAIN2: {str(e)}")
 
 # ==========================================
 # MAIN
@@ -264,20 +277,18 @@ class OrquestadorExtractores:
 
 def main():
     logger.info("=" * 70)
-    logger.info("Pipeline completo: SCRAPING + PREPROCESAMIENTO + ANALISIS LLM")
+    logger.info("🚀 PIPELINE COMPLETO: SCRAPING + PREPROCESAMIENTO + ANÁLISIS")
     logger.info("=" * 70)
 
     # ----------------------------------
-    # MODO SERVIDOR (Flask)
-    # python main.py <fase> <tema>
+    # MODO SERVIDOR (Flask) - SIN NÚMERO DE FASE
+    # python main.py <tema>
     # ----------------------------------
-    if len(sys.argv) >= 3:
-        fase = int(sys.argv[1])
-        tema = sys.argv[2]
+    if len(sys.argv) >= 2 and len(sys.argv) < 3:
+        tema = sys.argv[1]
 
-        logger.info(f"Ejecutado desde servidor")
-        logger.info(f"Fase solicitada: {fase}")
-        logger.info(f"Tema recibido: {tema}")
+        logger.info(f"🌐 Ejecutado desde servidor Flask")
+        logger.info(f"📝 Tema: {tema}")
 
         config = {
             "posts_por_tema": POSTS_POR_TEMA_DEFAULT,
@@ -285,7 +296,23 @@ def main():
         }
 
     # ----------------------------------
-    # MODO CONSOLA (normal)
+    # COMPATIBILIDAD CON VERSIÓN ANTIGUA (3 args)
+    # python main.py <fase> <tema>
+    # ----------------------------------
+    elif len(sys.argv) >= 3:
+        fase = int(sys.argv[1])  # Ignoramos este parámetro
+        tema = sys.argv[2]
+
+        logger.warning(f"⚠️  Usando formato antiguo con número de fase (ignorado)")
+        logger.info(f"📝 Tema: {tema}")
+
+        config = {
+            "posts_por_tema": POSTS_POR_TEMA_DEFAULT,
+            "temas_buscar": [tema]
+        }
+
+    # ----------------------------------
+    # MODO CONSOLA (interactivo)
     # ----------------------------------
     else:
         posts_por_tema, temas_buscar = preguntar_config_usuario()
@@ -293,18 +320,24 @@ def main():
             "posts_por_tema": posts_por_tema,
             "temas_buscar": temas_buscar
         }
-        fase = 1  # ejecuta todo
 
     # ----------------------------------
-    # ORQUESTADOR
+    # EJECUTAR ORQUESTADOR
     # ----------------------------------
     orquestador = OrquestadorExtractores(
         config=config,
         max_workers=MAX_WORKERS
     )
 
-    orquestador.ejecutar()
-
+    try:
+        orquestador.ejecutar()
+        logger.info("✓ Pipeline finalizado")
+    except KeyboardInterrupt:
+        logger.warning("\n⚠️  Pipeline interrumpido por el usuario")
+    except Exception as e:
+        logger.error(f"❌ Error fatal en pipeline: {str(e)}")
+        import traceback
+        traceback.print_exc()
 
 
 if __name__ == "__main__":

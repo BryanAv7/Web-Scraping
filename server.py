@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Servidor Flask — Sistema de Procesamiento Analítico
-Arquitectura multi-fase con dashboard de resultados.
+Ejecución en una sola fase con timeout y UTF-8.
 """
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for
@@ -13,6 +13,7 @@ import json
 import csv
 import os
 import sys
+import time
 
 app = Flask(__name__)
 
@@ -20,6 +21,7 @@ app = Flask(__name__)
 # CONFIGURACIÓN
 # ============================================================
 CARPETA_RESULTADOS = "resultados"
+TIMEOUT_PROCESO = 1800  # 30 minutos máximo
 
 
 # ============================================================
@@ -36,18 +38,15 @@ estado_proceso = {
     "timestamp_fin": None,
 }
 
-# Cola para logs en tiempo real (permite polling sin duplicados)
 log_queue = queue.Queue()
 
 NOMBRES_FASES = {
-    1: "Preparación de Datos",
-    2: "Limpieza de Datos",
-    3: "Procesamiento Analítico",
+    1: "Extracción y Análisis Completo",
 }
 
 
 # ============================================================
-# LÓGICA DE PROCESAMIENTO (Fases)
+# LÓGICA DE PROCESAMIENTO
 # ============================================================
 
 def registrar_log(fase, mensaje):
@@ -61,53 +60,80 @@ def registrar_log(fase, mensaje):
     log_queue.put(entrada)
 
 
-def ejecutar_fase(numero_fase, tema):
+def ejecutar_proceso_completo(tema):
     """
-    Ejecuta el script de una fase y captura su output línea por línea.
-    Lanza excepción si el proceso termina con código != 0.
+    Ejecuta main.py UNA SOLA VEZ con timeout y UTF-8.
     """
-    estado_proceso["fase_actual"] = numero_fase
-    estado_proceso["fase_nombre"] = NOMBRES_FASES[numero_fase]
+    estado_proceso["fase_actual"] = 1
+    estado_proceso["fase_nombre"] = NOMBRES_FASES[1]
 
     try:
+        registrar_log(1, f"Iniciando extraccion para: {tema}")
+        
+        # FORZAR UTF-8 (CRÍTICO PARA WINDOWS)
+        env = os.environ.copy()
+        env['PYTHONIOENCODING'] = 'utf-8'
+        
         proceso = subprocess.Popen(
-            ## Cambio por MAIN
-            [sys.executable, "main.py", str(numero_fase), tema],
+            [sys.executable, "main.py", tema],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
+            encoding='utf-8',
+            errors='replace',
+            env=env
         )
 
-        for linea in proceso.stdout:
-            linea = linea.strip()
+        inicio = time.time()
+        ultimo_output = time.time()
+        TIMEOUT_SIN_OUTPUT = 300
+        
+        while True:
+            if time.time() - inicio > TIMEOUT_PROCESO:
+                registrar_log(1, f"Timeout total ({TIMEOUT_PROCESO}s)")
+                proceso.kill()
+                raise Exception(f"Proceso excedio {TIMEOUT_PROCESO}s")
+            
+            if time.time() - ultimo_output > TIMEOUT_SIN_OUTPUT:
+                registrar_log(1, f"Sin respuesta por {TIMEOUT_SIN_OUTPUT}s")
+                proceso.kill()
+                raise Exception(f"Proceso colgado")
+            
+            linea = proceso.stdout.readline()
+            
+            if not linea and proceso.poll() is not None:
+                break
+            
             if linea:
-                registrar_log(numero_fase, linea)
-
-        proceso.wait()
-
+                linea = linea.strip()
+                if linea:
+                    registrar_log(1, linea)
+                    ultimo_output = time.time()
+            
+            time.sleep(0.1)
+        
         if proceso.returncode != 0:
-            raise Exception(f"Fase {numero_fase} falló con código {proceso.returncode}")
+            raise Exception(f"Proceso fallo con codigo {proceso.returncode}")
+        
+        registrar_log(1, "Proceso completado exitosamente")
 
     except Exception as e:
-        registrar_log(numero_fase, f"❌ ERROR: {e}")
+        registrar_log(1, f"ERROR: {e}")
         raise
 
 
 def proceso_completo(tema):
-    """Ejecuta las 3 fases secuencialmente. Se ejecuta en un thread separado."""
+    """Wrapper que ejecuta el proceso en el thread de Flask."""
     try:
         estado_proceso["timestamp_inicio"] = datetime.now().isoformat()
-
-        for fase in range(1, 4):
-            ejecutar_fase(fase, tema)
-
+        ejecutar_proceso_completo(tema)
         estado_proceso["completado"] = True
         estado_proceso["timestamp_fin"] = datetime.now().isoformat()
-        registrar_log(3, "✓ Proceso completo finalizado exitosamente")
-
+        registrar_log(1, "Pipeline finalizado")
     except Exception as e:
         estado_proceso["error"] = str(e)
+        estado_proceso["completado"] = False
         print(f"Error en proceso completo: {e}")
 
 
@@ -132,27 +158,16 @@ def reiniciar_estado(tema):
 
 
 # ============================================================
-# LÓGICA DE RESULTADOS (lectura de archivos)
+# LÓGICA DE RESULTADOS
 # ============================================================
 
 def leer_archivos_resultados():
-    """
-    Escanea la carpeta de resultados y agrupa archivos por fuente.
-    Devuelve un dict con estructura:
-        {
-            "facebook": { "json": {...}, "csv": [...] },
-            "linkedin": { "json": {...}, "csv": [...] },
-            ...
-        }
-    """
     fuentes = {}
-
     if not os.path.exists(CARPETA_RESULTADOS):
         return fuentes
 
     for nombre_archivo in os.listdir(CARPETA_RESULTADOS):
         ruta = os.path.join(CARPETA_RESULTADOS, nombre_archivo)
-        # Extraer nombre de fuente (todo antes del primer guión bajo)
         fuente = nombre_archivo.split("_")[0].lower()
 
         if fuente not in fuentes:
@@ -171,10 +186,6 @@ def leer_archivos_resultados():
 
 
 def calcular_sentimiento_global(fuentes):
-    """
-    Suma los conteos de sentimiento (POSITIVO/NEGATIVO/NEUTRAL)
-    de todos los CSVs y devuelve el resumen global.
-    """
     conteo = {"positivo": 0, "negativo": 0, "neutral": 0}
 
     for fuente in fuentes.values():
@@ -189,8 +200,6 @@ def calcular_sentimiento_global(fuentes):
 
     total = sum(conteo.values())
     conteo["total"] = total
-
-    # Determinar cuál predomina
     predomina = max(conteo, key=lambda k: conteo[k] if k != "total" else -1)
     conteo["predomina"] = predomina
 
@@ -198,54 +207,30 @@ def calcular_sentimiento_global(fuentes):
 
 
 def generar_llm_global(sentimiento_global):
-    """
-    Envía el resumen numérico al modelo Gemini para obtener un análisis global interpretado.
-    """
-
-    # Clave de la API de Google Gemini
     API_KEY = ""
 
     prompt = f"""
-    Aquí tienes un resumen de sentimiento agregado de múltiples redes sociales:
-
+    Resumen de sentimiento de múltiples redes sociales:
     - Positivos: {sentimiento_global['positivo']}
     - Negativos: {sentimiento_global['negativo']}
     - Neutrales: {sentimiento_global['neutral']}
-
-    Total analizado: {sentimiento_global['total']}
-    Sentimiento predominante: {sentimiento_global['predomina']}
-
-    Proporciona un análisis interpretado en un solo párrafo, con texto limpio y lenguaje sencillo, 
-    sin incluir listas ni datos numéricos dentro de la explicación. 
-    Describe de manera general qué significado tiene el resultado obtenido, 
-    qué tan fuerte es la polarización del público, 
-    qué nivel aproximado de confiabilidad podría tener la tendencia observada y 
-    qué conclusiones razonables se pueden tomar del panorama completo.
+    Total: {sentimiento_global['total']}
+    Predominante: {sentimiento_global['predomina']}
+    
+    Proporciona análisis en un párrafo simple.
     """
 
     try:
-        # --- Cliente Gemini ---
         import google.genai as genai
         genai.configure(api_key=API_KEY)
-
         model = genai.GenerativeModel("gemini-3-flash-preview")
-
         response = model.generate_content(prompt)
-
-        # La respuesta viene en response.text
         return response.text.strip()
-
     except Exception as e:
-        return f"Error en análisis por LLM (Gemini): {str(e)}"
+        return f"Error en analisis: {str(e)}"
 
 
 def obtener_datos_dashboard():
-    """
-    Punto de entrada principal para el dashboard.
-    Retorna todo lo que necesita la plantilla:
-        - fuentes con sus JSONs y CSVs
-        - sentimiento global consolidado
-    """
     fuentes = leer_archivos_resultados()
     sentimiento_global = calcular_sentimiento_global(fuentes)
     analisis_llm = generar_llm_global(sentimiento_global)
@@ -258,18 +243,16 @@ def obtener_datos_dashboard():
 
 
 # ============================================================
-# ENDPOINTS — Páginas
+# ENDPOINTS
 # ============================================================
 
 @app.route("/")
 def index():
-    """Pantalla inicial con formulario de búsqueda."""
     return render_template("index.html")
 
 
 @app.route("/dashboard")
 def dashboard():
-    """Dashboard de resultados. Redirige al inicio si el proceso no termina."""
     if not estado_proceso["completado"]:
         return redirect(url_for("index"))
 
@@ -284,13 +267,8 @@ def dashboard():
     )
 
 
-# ============================================================
-# ENDPOINTS — API (polling y datos)
-# ============================================================
-
 @app.route("/iniciar", methods=["POST"])
 def iniciar():
-    """Inicia el procesamiento en background a partir del tema enviado."""
     tema = request.form.get("tema", "").strip()
 
     if not tema:
@@ -307,7 +285,6 @@ def iniciar():
 
 @app.route("/api/estado")
 def api_estado():
-    """Retorna el estado actual del proceso (usado por polling en index.html)."""
     fase = estado_proceso["fase_actual"]
     return jsonify({
         "tema": estado_proceso["tema"],
@@ -315,13 +292,12 @@ def api_estado():
         "fase_nombre": estado_proceso["fase_nombre"],
         "completado": estado_proceso["completado"],
         "error": estado_proceso["error"],
-        "progreso_porcentaje": (fase / 3 * 100) if fase > 0 else 0,
+        "progreso_porcentaje": 100 if estado_proceso["completado"] else (50 if fase > 0 else 0),
     })
 
 
 @app.route("/api/logs")
 def api_logs():
-    """Retorna solo los logs nuevos desde la última consulta (polling)."""
     nuevos_logs = []
     while not log_queue.empty():
         try:
@@ -337,7 +313,6 @@ def api_logs():
 
 @app.route("/api/resultados")
 def api_resultados():
-    """Retorna todos los datos de resultados para consumo externo."""
     return jsonify(obtener_datos_dashboard())
 
 
@@ -347,10 +322,10 @@ def api_resultados():
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("🚀 Iniciando Sistema de Procesamiento por Fases")
+    print("Iniciando Sistema de Procesamiento")
     print("=" * 60)
-    print(f"📍 URL: http://localhost:5000")
-    print(f"⚙️  Modo: Desarrollo (debug=True)")
+    print(f"URL: http://localhost:5000")
+    print(f"Timeout: {TIMEOUT_PROCESO}s ({TIMEOUT_PROCESO/60:.0f} min)")
     print("=" * 60)
 
     app.run(debug=True, host="0.0.0.0", port=5000)
