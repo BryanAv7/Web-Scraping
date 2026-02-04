@@ -37,10 +37,14 @@
                             <div class="etiqueta">😆 Positivo</div>
                         </div>
                     </div>
+                    <!-- NUEVO: Botón para ver análisis LLM global -->
+                    <button class="btn-ver-analisis-global" onclick="abrirModalAnalisisGlobal()">
+                        🤖 Ver Análisis Global Completo
+                    </button>
                 </div>
 
-                <!-- Barra visual -->
-                <div class="barra-sentimiento">
+                <!-- Barra visual (ahora clickeable) -->
+                <div class="barra-sentimiento" onclick="abrirModalAnalisisGlobal()" style="cursor: pointer;" title="Clic para ver análisis completo">
                     <!-- Pluma: se posiciona por JS según predomina -->
                     <div class="pluma" id="pluma">
                         <div class="pluma-cuerpo"></div>
@@ -140,6 +144,30 @@
         <footer class="footer">
             <p>Sistema de Procesamiento v1.0 | Dashboard de Resultados</p>
         </footer>
+    </div>
+
+    <!-- ================================================
+         NUEVO: MODAL DE ANÁLISIS LLM GLOBAL
+         ================================================ -->
+    <div class="modal-interpretacion-overlay" id="modal-analisis-global">
+        <div class="modal-interpretacion-card">
+            <div class="modal-interpretacion-header">
+                <h3>
+                    <span>🤖</span>
+                    Análisis Global de Sentimiento (Todas las Redes)
+                </h3>
+                <button class="modal-interpretacion-cerrar" onclick="cerrarModalAnalisisGlobal()">&times;</button>
+            </div>
+            <div class="modal-interpretacion-body">
+                {% if analisis_llm %}
+                    <div class="texto-interpretacion">
+                        {{ analisis_llm }}
+                    </div>
+                {% else %}
+                    <p class="sin-datos">No hay análisis disponible.</p>
+                {% endif %}
+            </div>
+        </div>
     </div>
 
     <!-- ================================================
@@ -285,7 +313,18 @@
         })();
 
         // ------------------------------------------------------------
-        // Modal de INTERPRETACIÓN LLM
+        // NUEVO: Modal de ANÁLISIS LLM GLOBAL
+        // ------------------------------------------------------------
+        function abrirModalAnalisisGlobal() {
+            document.getElementById("modal-analisis-global").classList.add("activo");
+        }
+
+        function cerrarModalAnalisisGlobal() {
+            document.getElementById("modal-analisis-global").classList.remove("activo");
+        }
+
+        // ------------------------------------------------------------
+        // Modal de INTERPRETACIÓN LLM (por red)
         // ------------------------------------------------------------
         function abrirModalInterpretacion(nombre) {
             document.getElementById("modal-interpretacion-" + nombre).classList.add("activo");

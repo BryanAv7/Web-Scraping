@@ -222,13 +222,14 @@ def generar_llm_global(sentimiento_global):
 
     try:
         import google.genai as genai
-        genai.configure(api_key=API_KEY)
-        model = genai.GenerativeModel("gemini-3-flash-preview")
-        response = model.generate_content(prompt)
+        client = genai.Client(api_key=API_KEY)
+        response = client.models.generate_content(
+            model="gemini-3-flash-preview",
+            contents=prompt
+        )
         return response.text.strip()
     except Exception as e:
         return f"Error en analisis: {str(e)}"
-
 
 def obtener_datos_dashboard():
     fuentes = leer_archivos_resultados()
@@ -264,6 +265,8 @@ def dashboard():
         logs=estado_proceso["logs"],
         fuentes=datos["fuentes"],
         sentimiento_global=datos["sentimiento_global"],
+        # AGREGAR ESTA LÍNEA ↓
+        analisis_llm=datos["analisis_llm"]
     )
 
 
@@ -328,4 +331,4 @@ if __name__ == "__main__":
     print(f"Timeout: {TIMEOUT_PROCESO}s ({TIMEOUT_PROCESO/60:.0f} min)")
     print("=" * 60)
 
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(debug=False, host="0.0.0.0", port=5000)
